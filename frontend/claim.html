@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>클레임 접수 · 납품 불량 클레임 대응 시스템</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .page-wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 32px 24px 48px;
+      flex: 1;
+    }
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .page-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #888;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      transition: color 0.15s;
+    }
+    .back-btn:hover { color: #2c2c2c; }
+    .page-title {
+      font-size: 20px;
+      font-weight: 500;
+      color: #2c2c2c;
+    }
+    .page-sub {
+      font-size: 13px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .form-card {
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid #e0e0e0;
+      padding: 24px;
+    }
+    .form-card-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: #2c2c2c;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+    .field label {
+      display: block;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 6px;
+    }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #2c2c2c;
+      background: #fff;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color: #0d6b6c;
+    }
+    .field textarea {
+      resize: vertical;
+      min-height: 72px;
+    }
+
+    .upload-area {
+      border: 1.5px dashed #e0e0e0;
+      border-radius: 10px;
+      padding: 28px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      background: #fafafa;
+    }
+    .upload-area:hover {
+      border-color: #0d6b6c;
+      background: #e8f5f5;
+    }
+    .upload-area.has-file {
+      border-color: #0d6b6c;
+      background: #e8f5f5;
+    }
+    .upload-icon {
+      width: 36px;
+      height: 36px;
+      margin: 0 auto 10px;
+      opacity: 0.4;
+    }
+    .upload-text {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.6;
+    }
+    .upload-hint {
+      font-size: 11px;
+      color: #bbb;
+      margin-top: 4px;
+    }
+    .upload-preview {
+      display: none;
+      margin-top: 12px;
+    }
+    .upload-preview img {
+      max-width: 100%;
+      max-height: 160px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+    .upload-filename {
+      font-size: 12px;
+      color: #0d6b6c;
+      margin-top: 6px;
+      font-weight: 500;
+    }
+
+    .ai-box {
+      background: #e8f5f5;
+      border: 1px solid #0d6b6c;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .ai-box-label {
+      font-size: 11px;
+      color: #0a4e4f;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .ai-box-result {
+      font-size: 18px;
+      font-weight: 500;
+      color: #2c2c2c;
+    }
+    .ai-box-conf {
+      font-size: 12px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .draft-box {
+      background: #f8f8f8;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: #555;
+      line-height: 1.7;
+      margin-bottom: 12px;
+      display: none;
+    }
+    .draft-hint {
+      font-size: 11px;
+      color: #bbb;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 13px;
+      background: #0d6b6c;
+      color: #2c2c2c;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.15s;
+    }
+    .submit-btn:hover { background: #0a5a5b; }
+    .submit-btn:disabled {
+      background: #e0e0e0;
+      color: #aaa;
+      cursor: not-allowed;
+    }
+
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="logo-area">
+      <img src="logo.png" class="logo-icon" alt="로고" />
+      <div>
+        <div class="logo-title">납품 불량 클레임 대응 시스템</div>
+        <div class="logo-sub">AJIN INDUSTRIAL · QA 관리 시스템</div>
+      </div>
+    </div>
+    <div class="user-info">
+      <div class="user-avatar" id="userAvatar">홍</div>
+      <div>
+        <div class="user-name" id="userName">홍길동 담당자</div>
+        <div class="user-team">품질보증팀</div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-header-left">
+        <button class="back-btn" onclick="location.href='hub.html'">
+          ← 홈으로
+        </button>
+        <div>
+          <div class="page-title">클레임 접수</div>
+          <div class="page-sub">불량 사진을 업로드하고 AI 분류 결과를 확인하세요</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <!-- 왼쪽: 기본 정보 + 사진 업로드 -->
+      <div class="form-card">
+        <div class="form-card-title">기본 정보</div>
+
+        <div class="field">
+          <label>납품처 *</label>
+          <input type="text" id="supplier" placeholder="예: 현대부품" />
+        </div>
+
+        <div class="field">
+          <label>담당자 *</label>
+          <input type="text" id="handler" placeholder="예: 홍길동" />
+        </div>
+
+        <div class="field">
+          <label>불량 사진 업로드 *</label>
+          <div class="upload-area" id="uploadArea" onclick="document.getElementById('imageInput').click()">
+            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <div class="upload-text">사진을 클릭하여 업로드</div>
+            <div class="upload-hint">JPG, PNG · 최대 20MB</div>
+            <div class="upload-preview" id="uploadPreview">
+              <img id="previewImg" src="" alt="미리보기" />
+              <div class="upload-filename" id="uploadFilename"></div>
+            </div>
+          </div>
+          <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImage(this)" />
+        </div>
+
+        <div class="field">
+          <label>메모 (선택)</label>
+          <textarea id="memo" placeholder="추가 참고사항을 입력하세요"></textarea>
+        </div>
+      </div>
+
+      <!-- 오른쪽: AI 분류 + 보고서 초안 -->
+      <div class="right-col">
+        <div class="form-card">
+          <div class="form-card-title">AI 분류 제안</div>
+
+          <div class="ai-box" id="aiBox">
+            <div class="ai-box-label">✦ AI 분석 결과</div>
+            <div class="ai-box-result" id="aiResult">-</div>
+            <div class="ai-box-conf" id="aiConf"></div>
+          </div>
+
+          <div class="field">
+            <label>불량 유형 확정 *</label>
+            <select id="defectType">
+              <option value="">-- 선택하세요 --</option>
+              <option value="외관손상">외관손상</option>
+              <option value="실링 불량">실링 불량</option>
+              <option value="헤밍 불량">헤밍 불량</option>
+              <option value="홀 변형">홀 변형</option>
+              <option value="기타">기타</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <div class="form-card-title">보고서 초안</div>
+
+          <div class="draft-box" id="draftBox"></div>
+          <div class="draft-hint" id="draftHint">✦ 유사 사례 기반 자동 생성 · 수정 후 저장하세요</div>
+
+          <div class="field">
+            <label>원인 코드</label>
+            <input type="text" id="causeCode" placeholder="예: M01" />
+          </div>
+
+          <div class="field">
+            <label>대책 문구</label>
+            <textarea id="action" placeholder="유사 사례 선택 시 자동으로 채워집니다"></textarea>
+          </div>
+
+          <button class="submit-btn" id="submitBtn" onclick="submitClaim()">접수 및 확정 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-left">© 2026 경북대 KDT 12기 · SILI 경진대회</div>
+    <div class="footer-status">
+      <span class="status-dot"></span>
+      로컬 서버 연결됨 · DB 정상
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script>
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    if (!user) {
+      location.href = 'index.html';
+    } else {
+      document.getElementById('userAvatar').textContent = user.name.charAt(0);
+      document.getElementById('userName').textContent = user.name + ' 담당자';
+      document.getElementById('handler').value = user.name;
+    }
+
+    function doLogout() {
+      sessionStorage.removeItem('user');
+      location.href = 'index.html';
+    }
+
+    function handleImage(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('previewImg').src = e.target.result;
+        document.getElementById('uploadFilename').textContent = file.name;
+        document.getElementById('uploadPreview').style.display = 'block';
+        document.getElementById('uploadArea').classList.add('has-file');
+      };
+      reader.readAsDataURL(file);
+
+      // TODO: 실제 AI 분류 API 연동 (현재는 시연용 mock)
+      setTimeout(() => {
+        const types = ['외관손상', '실링 불량', '헤밍 불량'];
+        const suggestion = types[Math.floor(Math.random() * types.length)];
+        const conf = Math.floor(Math.random() * 20 + 78);
+
+        document.getElementById('aiBox').style.display = 'block';
+        document.getElementById('aiResult').textContent = suggestion;
+        document.getElementById('aiConf').textContent = `신뢰도 ${conf}%`;
+        document.getElementById('defectType').value = suggestion;
+
+        loadDraft(suggestion);
+      }, 800);
+    }
+
+    function loadDraft(defectType) {
+      // TODO: 실제 유사사례 API 연동
+      const drafts = {
+        '외관손상': { code: 'M01', action: '연마 공정 조건 재설정 및 작업자 교육 실시' },
+        '실링 불량': { code: 'M03', action: '작업 환경 청결 유지 및 이물 유입 차단 조치' },
+        '헤밍 불량': { code: 'M02', action: '취급 주의 교육 및 포장 방법 개선' },
+      };
+      const draft = drafts[defectType];
+      if (draft) {
+        document.getElementById('causeCode').value = draft.code;
+        document.getElementById('action').value = draft.action;
+        document.getElementById('draftBox').textContent = `유사 사례 기반으로 초안이 생성되었습니다. 내용을 확인 후 수정하세요.`;
+        document.getElementById('draftBox').style.display = 'block';
+        document.getElementById('draftHint').style.display = 'block';
+      }
+    }
+
+    function submitClaim() {
+      const supplier = document.getElementById('supplier').value.trim();
+      const handler = document.getElementById('handler').value.trim();
+      const defectType = document.getElementById('defectType').value;
+
+      if (!supplier || !handler || !defectType) {
+        alert('납품처, 담당자, 불량 유형은 필수 항목입니다.');
+        return;
+      }
+
+      // TODO: 실제 FastAPI POST /claims/ 연동
+      alert(`접수 완료!\n납품처: ${supplier}\n불량유형: ${defectType}\n담당자: ${handler}`);
+      location.href = 'hub.html';
+    }
+  </script>
+</body>
+</html>
