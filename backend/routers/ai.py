@@ -4,7 +4,7 @@ import random  # TODO: 실제 모델로 교체 예정
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
-DEFECT_TYPES = ["스크래치", "이물·오염", "찍힘·변형", "치수불량", "기타"]
+DEFECT_TYPES = ["외관손상", "실링 불량", "헤밍 불량", "홀 변형", "기타"]
 
 
 @router.post("/classify")
