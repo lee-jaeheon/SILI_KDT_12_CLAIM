@@ -8,3 +8,4 @@ torchvision
 ultralytics
 pandas
 aiofiles
+python-docx
