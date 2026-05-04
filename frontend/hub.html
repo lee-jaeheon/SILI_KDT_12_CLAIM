@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>납품 불량 클레임 대응 시스템</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="logo-area">
+      <img src="logo.png" class="logo-icon" alt="로고" />
+      <div>
+        <div class="logo-title">납품 불량 클레임 대응 시스템</div>
+        <div class="logo-sub">AJIN INDUSTRIAL · QA 관리 시스템</div>
+      </div>
+    </div>
+    <div class="user-info">
+      <div class="user-avatar" id="userAvatar">홍</div>
+      <div>
+        <div class="user-name" id="userName">홍길동 담당자</div>
+        <div class="user-team">품질보증팀</div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+  </div>
+
+  <main class="main">
+    <div class="hero">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        시스템 정상 운영 중
+      </div>
+      <h1 class="hero-title">무엇을 도와드릴까요?</h1>
+      <p class="hero-sub">클레임 접수 또는 이력 조회를 선택하세요</p>
+    </div>
+
+    <div class="cards">
+      <div class="card" onclick="location.href='claim.html'">
+        <div class="card-icon primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+        </div>
+        <div class="card-body">
+          <div class="card-title">클레임 접수</div>
+          <div class="card-desc">불량 사진 업로드 후<br/>AI 분류 제안 및 보고서 초안 생성</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+
+      <div class="card" onclick="location.href='list.html'">
+        <div class="card-icon dark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"/>
+            <line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="14" y2="18"/>
+            <polyline points="3 6 4 7 6 5"/>
+            <polyline points="3 12 4 13 6 11"/>
+            <polyline points="3 18 4 19 6 17"/>
+          </svg>
+        </div>
+        <div class="card-body">
+          <div class="card-title">클레임 목록 · 유사사례</div>
+          <div class="card-desc">접수 이력 조회 및<br/>과거 유사 클레임 사례 검색</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-left">© 2026 경북대 KDT 12기 · SILI 경진대회</div>
+    <div class="footer-status">
+      <span class="status-dot"></span>
+      로컬 서버 연결됨 · DB 정상
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script>
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    if (!user) {
+      location.href = 'index.html';
+    } else {
+      document.getElementById('userAvatar').textContent = user.name.charAt(0);
+      document.getElementById('userName').textContent = user.name + ' 담당자';
+    }
+
+    function doLogout() {
+      sessionStorage.removeItem('user');
+      location.href = 'index.html';
+    }
+  </script>
+</body>
+</html>
