@@ -1,23 +1,41 @@
+import logging
+import os
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from backend.routers import claim, report, ai
-import os
+from backend.models.database import init_db
+
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="납품 불량 클레임 대응 자동화 시스템", version="1.0.0")
 
-# 라우터 등록
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(claim.router)
 app.include_router(report.router)
 app.include_router(ai.router)
 
-# 정적 파일 서빙 (HTML/CSS/JS + 업로드 이미지)
-app.mount("/uploads", StaticFiles(directory="frontend/uploads"), name="uploads")
-app.mount("/css", StaticFiles(directory="frontend/css"), name="css")
-app.mount("/js", StaticFiles(directory="frontend/js"), name="js")
+_BASE = Path(__file__).parent.parent
+(_BASE / "uploads").mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_BASE / "uploads")),        name="uploads")
+app.mount("/css",     StaticFiles(directory=str(_BASE / "frontend" / "css")),   name="css")
+app.mount("/js",      StaticFiles(directory=str(_BASE / "frontend" / "js")),    name="js")
+app.mount("/fonts",   StaticFiles(directory=str(_BASE / "frontend" / "fonts")), name="fonts")
 
 
-# 페이지 라우팅
+@app.on_event("startup")
+async def startup():
+    init_db()
+
+
 @app.get("/")
 def index():
     return FileResponse("frontend/index.html")

@@ -1,11 +1,13 @@
 fastapi
 uvicorn[standard]
 python-multipart
+httpx
 pillow
-opencv-python
 torch
 torchvision
-ultralytics
-pandas
-aiofiles
+timm
+pdfplumber
 python-docx
+aiofiles
+pymysql
+python-dotenv
