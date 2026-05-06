@@ -1,0 +1,32 @@
+# Python cache / build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environment
+.env
+.venv/
+venv/
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+database/*.db
+database/*.sqlite
+database/*.sqlite3
+
+# Runtime uploads are ignored by default.
+# Keep committed sample images for DB seed/demo cases.
+uploads/*
+!uploads/sample_cases/
+!uploads/sample_cases/*
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
