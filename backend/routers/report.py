@@ -27,7 +27,7 @@ async def generate_report(report_id: int):
 
     defect_name = DEFECT_LABELS.get(report.get("defect_type", ""), "미확인")
     customer    = report.get("customer_name", "")
-    received    = (report.get("received_date") or report.get("created_at", ""))[:10]
+    received    = (report.get("received_date") or "")[:10]
     root_cause  = report.get("root_cause_analysis") or "미기재"
     corrective  = report.get("corrective_action") or "미기재"
     preventive  = report.get("preventive_action") or "미기재"

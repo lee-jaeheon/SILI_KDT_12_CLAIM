@@ -17,6 +17,69 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_NAME     = os.getenv("DB_NAME", "claims_db")
 
 
+def _index_exists(cur, table_name: str, index_name: str) -> bool:
+    cur.execute(
+        """
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.statistics
+        WHERE table_schema = %s
+          AND table_name = %s
+          AND index_name = %s
+        """,
+        (DB_NAME, table_name, index_name),
+    )
+    return cur.fetchone()["cnt"] > 0
+
+
+def _column_type(cur, table_name: str, column_name: str) -> str | None:
+    cur.execute(
+        """
+        SELECT column_type AS col_type
+        FROM information_schema.columns
+        WHERE table_schema = %s
+          AND table_name = %s
+          AND column_name = %s
+        """,
+        (DB_NAME, table_name, column_name),
+    )
+    row = cur.fetchone()
+    return row["col_type"].lower() if row else None
+
+
+def _ensure_index(cur, table_name: str, index_name: str, ddl: str):
+    if not _index_exists(cur, table_name, index_name):
+        cur.execute(ddl)
+
+
+def _ensure_schema_extensions(cur):
+    if _column_type(cur, "defect_reports", "claim_text") != "longtext":
+        cur.execute("ALTER TABLE defect_reports MODIFY claim_text LONGTEXT")
+    if _column_type(cur, "defect_reports", "extracted_text") != "longtext":
+        cur.execute("ALTER TABLE defect_reports MODIFY extracted_text LONGTEXT")
+
+    _ensure_index(
+        cur,
+        "defect_reports",
+        "idx_reports_status_id",
+        "CREATE INDEX idx_reports_status_id "
+        "ON defect_reports (report_status, report_id)",
+    )
+    _ensure_index(
+        cur,
+        "defect_reports",
+        "idx_reports_similar",
+        "CREATE INDEX idx_reports_similar "
+        "ON defect_reports (report_status, defect_type, customer_name, report_id)",
+    )
+    _ensure_index(
+        cur,
+        "defect_report_images",
+        "idx_images_report",
+        "CREATE INDEX idx_images_report "
+        "ON defect_report_images (report_id)",
+    )
+
+
 @contextmanager
 def get_conn():
     conn = pymysql.connect(
@@ -57,8 +120,7 @@ def init_db():
                     code        VARCHAR(50)  PRIMARY KEY,
                     label       VARCHAR(100) NOT NULL,
                     category_id INT,
-                    description TEXT,
-                    created_at  DATETIME     DEFAULT NOW()
+                    description TEXT
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             cur.execute("""
@@ -79,8 +141,8 @@ def init_db():
                     lot_no               VARCHAR(100),
                     delivery_quantity    INT,
                     defect_quantity      INT,
-                    claim_text           TEXT,
-                    extracted_text       TEXT,
+                    claim_text           LONGTEXT,
+                    extracted_text       LONGTEXT,
                     claim_summary        TEXT,
                     root_cause_analysis  TEXT,
                     corrective_action    TEXT,
@@ -88,15 +150,14 @@ def init_db():
                     ai_defect_type       VARCHAR(50),
                     ai_confidence        FLOAT,
                     llm_model            VARCHAR(100),
-                    llm_extraction_json  JSON,
                     handler              VARCHAR(100),
                     author_name          VARCHAR(100),
                     reviewer_name        VARCHAR(100),
                     approver_name        VARCHAR(100),
                     report_status        VARCHAR(20)  NOT NULL DEFAULT 'draft',
-                    created_at           DATETIME     DEFAULT NOW(),
-                    updated_at           DATETIME     DEFAULT NOW(),
-                    FOREIGN KEY (defect_type) REFERENCES defect_types(code)
+                    FOREIGN KEY (defect_type) REFERENCES defect_types(code),
+                    INDEX idx_reports_status_id (report_status, report_id),
+                    INDEX idx_reports_similar (report_status, defect_type, customer_name, report_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             cur.execute("""
@@ -104,15 +165,16 @@ def init_db():
                     image_id            INT          PRIMARY KEY AUTO_INCREMENT,
                     report_id           INT          NOT NULL,
                     image_type          VARCHAR(100),
-                    original_image_path VARCHAR(500),
                     image_path          VARCHAR(500) NOT NULL,
                     image_description   TEXT,
                     defect_bbox         JSON,
                     uploaded_at         DATETIME     DEFAULT NOW(),
                     FOREIGN KEY (report_id) REFERENCES defect_reports(report_id)
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
+                    INDEX idx_images_report (report_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            _ensure_schema_extensions(cur)
             cur.execute("""
                 INSERT IGNORE INTO defect_types (code, label, category_id, description) VALUES
                     ('OUTER_DAMAGE', '외관 손상', 102, '외관 긁힘, 찍힘, 변형 등 육안 식별 불량'),
@@ -153,7 +215,6 @@ def insert_report(
     ai_defect_type: str = None,
     ai_confidence: float = None,
     llm_model: str = None,
-    llm_extraction_json: dict = None,
     product_name: str = None,
     product_no: str = None,
     part_name: str = None,
@@ -177,16 +238,15 @@ def insert_report(
                 """INSERT INTO defect_reports (
                     document_no, received_date, customer_name,
                     defect_type, defect_location,
-                    ai_defect_type, ai_confidence, llm_model, llm_extraction_json,
+                    ai_defect_type, ai_confidence, llm_model,
                     product_name, product_no, part_name, process_name, lot_no,
                     delivery_quantity, defect_quantity,
                     claim_text, extracted_text, claim_summary,
                     handler, author_name, delivery_date, issue_date
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (doc_no, received, customer_name,
                  defect_type, defect_location,
                  ai_defect_type, ai_confidence, llm_model,
-                 json.dumps(llm_extraction_json, ensure_ascii=False) if llm_extraction_json else None,
                  product_name, product_no, part_name, process_name, lot_no,
                  delivery_quantity, defect_quantity,
                  claim_text, extracted_text, claim_summary,
@@ -222,12 +282,12 @@ def list_reports(status: str = None, limit: int = 20, offset: int = 0) -> dict:
             if status:
                 cur.execute(
                     "SELECT * FROM defect_reports WHERE report_status = %s "
-                    "ORDER BY created_at DESC LIMIT %s OFFSET %s",
+                    "ORDER BY report_id DESC LIMIT %s OFFSET %s",
                     (status, limit, offset)
                 )
             else:
                 cur.execute(
-                    "SELECT * FROM defect_reports ORDER BY created_at DESC LIMIT %s OFFSET %s",
+                    "SELECT * FROM defect_reports ORDER BY report_id DESC LIMIT %s OFFSET %s",
                     (limit, offset)
                 )
             items = cur.fetchall()
@@ -250,7 +310,6 @@ def update_report(report_id: int, fields: dict) -> bool:
     update = {k: v for k, v in fields.items() if k in ALLOWED_UPDATE_FIELDS}
     if not update:
         return False
-    update["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cols = ", ".join(f"{k}=%s" for k in update)
     vals = list(update.values()) + [report_id]
     with get_conn() as conn:
@@ -280,18 +339,15 @@ def insert_image(
     image_path: str,
     image_type: str = None,
     image_description: str = None,
-    original_image_path: str = None,
     defect_bbox: list = None,
 ) -> int:
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO defect_report_images
-                   (report_id, image_type, image_path, image_description,
-                    original_image_path, defect_bbox)
-                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                   (report_id, image_type, image_path, image_description, defect_bbox)
+                   VALUES (%s, %s, %s, %s, %s)""",
                 (report_id, image_type, image_path, image_description,
-                 original_image_path,
                  json.dumps(defect_bbox) if defect_bbox else None),
             )
             return cur.lastrowid
@@ -331,7 +387,7 @@ def search_similar(defect_type: str, customer_name: str = None, limit: int = 5) 
                     SELECT *, 1 AS score FROM defect_reports
                     WHERE report_status = 'approved' AND defect_type = %s
                       AND (%s IS NULL OR customer_name != %s)
-                ) AS t ORDER BY score DESC, created_at DESC LIMIT %s""",
+                ) AS t ORDER BY score DESC, report_id DESC LIMIT %s""",
                 (defect_type, customer_name or "", defect_type, customer_name, customer_name or "", limit),
             )
             return cur.fetchall()
