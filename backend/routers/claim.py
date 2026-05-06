@@ -53,6 +53,7 @@ def get_reports(
 async def create_report(
     customer_name:     str            = Form(...),
     defect_type:       str            = Form(""),
+    defect_location:   str            = Form(""),
     product_name:      str            = Form(""),
     product_no:        str            = Form(""),
     part_name:         str            = Form(""),
@@ -83,6 +84,7 @@ async def create_report(
     report_id = insert_report(
         customer_name=customer_name,
         defect_type=defect_type or None,
+        defect_location=defect_location or None,
         ai_defect_type=ai_defect_type or None,
         ai_confidence=ai_confidence,
         product_name=product_name or None,
@@ -108,11 +110,39 @@ async def create_report(
 
 @router.get("/similar")
 def get_similar(
-    defect_type:   str           = Query(...),
+    defect_type: Optional[str] = Query(None),
     customer_name: Optional[str] = Query(None),
-    limit:         int           = Query(5),
+    product_name: Optional[str] = Query(None),
+    product_no: Optional[str] = Query(None),
+    part_name: Optional[str] = Query(None),
+    process_name: Optional[str] = Query(None),
+    defect_location: Optional[str] = Query(None),
+    claim_text: Optional[str] = Query(None),
+    extracted_text: Optional[str] = Query(None),
+    claim_summary: Optional[str] = Query(None),
+    root_cause_analysis: Optional[str] = Query(None),
+    corrective_action: Optional[str] = Query(None),
+    preventive_action: Optional[str] = Query(None),
+    limit: int = Query(5),
+    min_score: int = Query(60),
 ):
-    return search_similar(defect_type=defect_type, customer_name=customer_name, limit=limit)
+    return search_similar(
+        defect_type=defect_type,
+        customer_name=customer_name,
+        product_name=product_name,
+        product_no=product_no,
+        part_name=part_name,
+        process_name=process_name,
+        defect_location=defect_location,
+        claim_text=claim_text,
+        extracted_text=extracted_text,
+        claim_summary=claim_summary,
+        root_cause_analysis=root_cause_analysis,
+        corrective_action=corrective_action,
+        preventive_action=preventive_action,
+        limit=limit,
+        min_score=min_score,
+    )
 
 
 @router.get("/{report_id}")
@@ -126,6 +156,7 @@ def get_report_detail(report_id: int):
 class UpdateBody(BaseModel):
     defect_type:         Optional[str]   = None
     defect_code:         Optional[str]   = None
+    defect_location:     Optional[str]   = None
     product_name:        Optional[str]   = None
     product_no:          Optional[str]   = None
     part_name:           Optional[str]   = None
@@ -148,9 +179,11 @@ class UpdateBody(BaseModel):
 
 @router.put("/{report_id}")
 def update_report_api(report_id: int, body: UpdateBody):
-    ok = update_report(report_id, body.model_dump(exclude_none=True))
-    if not ok:
+    result = update_report(report_id, body.model_dump(exclude_none=True))
+    if result == "missing":
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
+    if result == "no_fields":
+        raise HTTPException(status_code=400, detail="수정할 필드가 없습니다.")
     return {"message": "수정되었습니다."}
 
 

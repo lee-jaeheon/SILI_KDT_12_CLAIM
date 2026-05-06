@@ -1,7 +1,9 @@
-import json
+﻿import json
 import os
+import ast
 from contextlib import contextmanager
 from datetime import datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import pymysql
@@ -15,6 +17,8 @@ DB_PORT     = int(os.getenv("DB_PORT", "3306"))
 DB_USER     = os.getenv("DB_USER", "root")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_NAME     = os.getenv("DB_NAME", "claims_db")
+BASE_DIR    = Path(__file__).parent.parent.parent
+SAMPLE_SQL_PATH = BASE_DIR / "sampleDBB.sql"
 
 
 def _index_exists(cur, table_name: str, index_name: str) -> bool:
@@ -80,6 +84,113 @@ def _ensure_schema_extensions(cur):
     )
 
 
+def _seed_document_sequences(cur):
+    cur.execute(
+        """
+        INSERT INTO document_sequences (seq_year, last_seq)
+        SELECT
+            CAST(SUBSTR(document_no, 5, 4) AS UNSIGNED) AS seq_year,
+            MAX(CAST(SUBSTR(document_no, 10) AS UNSIGNED)) AS last_seq
+        FROM defect_reports
+        WHERE document_no REGEXP '^CLM-[0-9]{4}-[0-9]+$'
+        GROUP BY CAST(SUBSTR(document_no, 5, 4) AS UNSIGNED)
+        ON DUPLICATE KEY UPDATE
+            last_seq = GREATEST(document_sequences.last_seq, VALUES(last_seq))
+        """
+    )
+
+
+def _seed_defect_types(cur):
+    cur.executemany(
+        """
+        INSERT IGNORE INTO defect_types (code, label, category_id, description)
+        VALUES (%s, %s, %s, %s)
+        """,
+        [
+            ("OUTER_DAMAGE", "\uc678\uad00 \uc190\uc0c1", 102, "\uc678\uad00 \uae01\ud798, \ucc0d\ud798, \ubcc0\ud615 \ub4f1 \uc721\uc548 \uc2dd\ubcc4 \ubd88\ub7c9"),
+            ("SEALING", "\uc2e4\ub9c1 \ubd88\ub7c9", 204, "\uc2e4\ub9c1\uc7ac \ubbf8\ub3c4\ud3ec, \ubd80\uc871, \uc704\uce58 \uc774\ud0c8"),
+            ("HEMMING", "\ud5e4\ubc0d \ubd88\ub7c9", 212, "\ud5e4\ubc0d \uacf5\uc815 \uc811\ud569 \ubd88\ub7c9"),
+            ("HOLE_DEFORM", "\ud640 \ubcc0\ud615", 213, "\ud640 \uce58\uc218 \uc774\ud0c8, \ubcc0\ud615"),
+        ],
+    )
+
+
+def _extract_insert_rows(sql_text: str, table_name: str) -> list[tuple]:
+    marker = f"INSERT INTO {table_name}"
+    start = sql_text.find(marker)
+    if start < 0:
+        return []
+    values_start = sql_text.find(") VALUES", start)
+    if values_start < 0:
+        return []
+    values_start = sql_text.find("\n", values_start) + 1
+    end = sql_text.find(";\n", values_start)
+    if end < 0:
+        end = sql_text.find(";", values_start)
+    if end < 0:
+        return []
+    values_text = sql_text[values_start:end].strip()
+    if not values_text:
+        return []
+    values_text = values_text.replace("NULL", "None")
+    return list(ast.literal_eval(f"[{values_text}]"))
+
+
+def _seed_sample_cases(cur):
+    if not SAMPLE_SQL_PATH.exists():
+        return
+    cur.execute("SELECT COUNT(1) AS cnt FROM defect_reports")
+    if cur.fetchone()["cnt"] > 0:
+        return
+
+    sql_text = SAMPLE_SQL_PATH.read_text(encoding="utf-8")
+    report_rows = _extract_insert_rows(sql_text, "defect_reports")
+    image_rows = _extract_insert_rows(sql_text, "defect_report_images")
+
+    if report_rows:
+        cur.executemany(
+            """
+            INSERT IGNORE INTO defect_reports (
+                report_id, document_no, received_date, defect_type, defect_code,
+                defect_location, customer_name, product_name, product_no, part_name,
+                process_name, lot_no, delivery_quantity, claim_text, extracted_text,
+                claim_summary, root_cause_analysis, corrective_action,
+                preventive_action, handler, author_name, reviewer_name,
+                approver_name, report_status
+            ) VALUES (
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s
+            )
+            """,
+            [
+                (
+                    row[0], row[1], row[2], row[4], row[5],
+                    row[6], row[7], row[8], row[9], row[10],
+                    row[11], row[12], row[13], row[14], row[15],
+                    row[16], row[18], row[19],
+                    row[20], row[21], row[22], row[23],
+                    row[24], row[25],
+                )
+                for row in report_rows
+            ],
+        )
+
+    if image_rows:
+        cur.executemany(
+            """
+            INSERT IGNORE INTO defect_report_images (
+                image_id, report_id, image_type, image_path,
+                image_description, uploaded_at
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            image_rows,
+        )
+
+
 @contextmanager
 def get_conn():
     conn = pymysql.connect(
@@ -121,6 +232,12 @@ def init_db():
                     label       VARCHAR(100) NOT NULL,
                     category_id INT,
                     description TEXT
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS document_sequences (
+                    seq_year INT PRIMARY KEY,
+                    last_seq INT NOT NULL DEFAULT 0
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             cur.execute("""
@@ -175,16 +292,12 @@ def init_db():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             _ensure_schema_extensions(cur)
-            cur.execute("""
-                INSERT IGNORE INTO defect_types (code, label, category_id, description) VALUES
-                    ('OUTER_DAMAGE', '외관 손상', 102, '외관 긁힘, 찍힘, 변형 등 육안 식별 불량'),
-                    ('SEALING',      '실링 불량', 204, '실링재 미도포, 부족, 위치 이탈'),
-                    ('HEMMING',      '헤밍 불량', 212, '헤밍 공정 접합 불량'),
-                    ('HOLE_DEFORM',  '홀 변형',   213, '홀 치수 이탈, 변형')
-            """)
+            _seed_defect_types(cur)
+            _seed_sample_cases(cur)
+            _seed_document_sequences(cur)
 
 
-# ── defect_types ───────────────────────────────────────────────────────────────
+# ?? defect_types ???????????????????????????????????????????????????????????????
 
 def get_defect_types() -> list[dict]:
     with get_conn() as conn:
@@ -193,18 +306,29 @@ def get_defect_types() -> list[dict]:
             return cur.fetchall()
 
 
-# ── defect_reports CRUD ────────────────────────────────────────────────────────
+# ?? defect_reports CRUD ????????????????????????????????????????????????????????
 
 def _generate_document_no(conn) -> str:
-    year = datetime.now().strftime("%Y")
+    year = int(datetime.now().strftime("%Y"))
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT MAX(CAST(SUBSTR(document_no, 10) AS UNSIGNED)) AS max_seq "
-            "FROM defect_reports WHERE document_no LIKE %s",
-            (f"CLM-{year}-%",)
+            """
+            INSERT INTO document_sequences (seq_year, last_seq)
+            VALUES (%s, 0)
+            ON DUPLICATE KEY UPDATE last_seq = last_seq
+            """,
+            (year,),
+        )
+        cur.execute(
+            "SELECT last_seq FROM document_sequences WHERE seq_year = %s FOR UPDATE",
+            (year,),
         )
         row = cur.fetchone()
-    seq = (row["max_seq"] or 0) + 1
+        seq = row["last_seq"] + 1
+        cur.execute(
+            "UPDATE document_sequences SET last_seq = %s WHERE seq_year = %s",
+            (seq, year),
+        )
     return f"CLM-{year}-{seq:04d}"
 
 
@@ -306,16 +430,19 @@ ALLOWED_UPDATE_FIELDS = {
     "report_status", "llm_model",
 }
 
-def update_report(report_id: int, fields: dict) -> bool:
+def update_report(report_id: int, fields: dict) -> str:
     update = {k: v for k, v in fields.items() if k in ALLOWED_UPDATE_FIELDS}
     if not update:
-        return False
+        return "no_fields"
     cols = ", ".join(f"{k}=%s" for k in update)
     vals = list(update.values()) + [report_id]
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(f"UPDATE defect_reports SET {cols} WHERE report_id = %s", vals)
-            return cur.rowcount > 0
+            if cur.rowcount > 0:
+                return "updated"
+            cur.execute("SELECT 1 FROM defect_reports WHERE report_id = %s", (report_id,))
+            return "unchanged" if cur.fetchone() else "missing"
 
 
 def delete_report(report_id: int):
@@ -332,7 +459,7 @@ def delete_report(report_id: int):
             full_path.unlink()
 
 
-# ── defect_report_images ───────────────────────────────────────────────────────
+# ?? defect_report_images ???????????????????????????????????????????????????????
 
 def insert_image(
     report_id: int,
@@ -374,20 +501,196 @@ def delete_image(image_id: int):
             full_path.unlink()
 
 
-# ── 유사 사례 검색 ──────────────────────────────────────────────────────────────
+# ?? ?좎궗 ?щ? 寃????????????????????????????????????????????????????????????????
 
-def search_similar(defect_type: str, customer_name: str = None, limit: int = 5) -> list[dict]:
+SIMILARITY_WEIGHTS = {
+    "defect_type": 30,
+    "product": 20,
+    "defect_detail": 15,
+    "root_cause": 12,
+    "actions": 10,
+    "customer": 8,
+    "process": 5,
+}
+
+
+def _normalize_text(value) -> str:
+    return " ".join(str(value or "").lower().split())
+
+
+def _text_similarity(left, right) -> float:
+    left_text = _normalize_text(left)
+    right_text = _normalize_text(right)
+    if not left_text or not right_text:
+        return 0.0
+    if left_text == right_text:
+        return 1.0
+    if left_text in right_text or right_text in left_text:
+        overlap = min(len(left_text), len(right_text)) / max(len(left_text), len(right_text))
+        return min(1.0, 0.85 + (0.15 * overlap))
+    return SequenceMatcher(None, left_text, right_text).ratio()
+
+
+def _avg_similarities(pairs: list[tuple]) -> float:
+    scores = [_text_similarity(left, right) for left, right in pairs if left]
+    return sum(scores) / len(scores) if scores else 0.0
+
+
+def _max_similarity(left_values: list, right_values: list) -> float:
+    scores = [
+        _text_similarity(left, right)
+        for left in left_values if left
+        for right in right_values if right
+    ]
+    return max(scores) if scores else 0.0
+
+
+def _similarity_level(score: int) -> str:
+    if score >= 80:
+        return "\uc720\uc0ac \uc0ac\ub840"
+    if score >= 60:
+        return "\ucc38\uace0 \uc0ac\ub840"
+    return "\uc720\uc0ac \uc0ac\ub840 \uc5c6\uc74c"
+
+
+def _score_similar_case(target: dict, case: dict) -> tuple[int, dict]:
+    details = {}
+    active = {
+        "defect_type": bool(target.get("defect_type")),
+        "product": any(target.get(key) for key in ("product_name", "product_no", "part_name")),
+        "defect_detail": any(target.get(key) for key in ("defect_location", "claim_text", "extracted_text", "claim_summary")),
+        "root_cause": bool(target.get("root_cause_analysis")),
+        "actions": any(target.get(key) for key in ("corrective_action", "preventive_action")),
+        "customer": bool(target.get("customer_name")),
+        "process": bool(target.get("process_name")),
+    }
+    details["defect_type"] = (
+        1.0 if target.get("defect_type") and target.get("defect_type") == case.get("defect_type") else 0.0
+    )
+    details["product"] = _avg_similarities([
+        (target.get("product_name"), case.get("product_name")),
+        (target.get("product_no"), case.get("product_no")),
+        (target.get("part_name"), case.get("part_name")),
+    ])
+    details["defect_detail"] = _max_similarity(
+        [target.get("defect_location"), target.get("claim_text"), target.get("extracted_text"), target.get("claim_summary")],
+        [case.get("defect_location"), case.get("claim_text"), case.get("extracted_text"), case.get("claim_summary")],
+    )
+    details["root_cause"] = _text_similarity(target.get("root_cause_analysis"), case.get("root_cause_analysis"))
+    details["actions"] = _avg_similarities([
+        (target.get("corrective_action"), case.get("corrective_action")),
+        (target.get("preventive_action"), case.get("preventive_action")),
+    ])
+    details["customer"] = _text_similarity(target.get("customer_name"), case.get("customer_name"))
+    details["process"] = _text_similarity(target.get("process_name"), case.get("process_name"))
+
+    active_weight = sum(SIMILARITY_WEIGHTS[key] for key, enabled in active.items() if enabled)
+    raw_score = sum(
+        details[key] * SIMILARITY_WEIGHTS[key]
+        for key, enabled in active.items()
+        if enabled
+    )
+    score = round((raw_score / active_weight) * 100) if active_weight else 0
+    score_details = {
+        key: {
+            "score": round(details[key] * SIMILARITY_WEIGHTS[key]),
+            "weight": SIMILARITY_WEIGHTS[key],
+            "active": active[key],
+        }
+        for key in SIMILARITY_WEIGHTS
+    }
+    return score, score_details
+
+
+def search_similar(
+    defect_type: str = None,
+    customer_name: str = None,
+    product_name: str = None,
+    product_no: str = None,
+    part_name: str = None,
+    process_name: str = None,
+    defect_location: str = None,
+    claim_text: str = None,
+    extracted_text: str = None,
+    claim_summary: str = None,
+    root_cause_analysis: str = None,
+    corrective_action: str = None,
+    preventive_action: str = None,
+    limit: int = 5,
+    min_score: int = 60,
+) -> list[dict]:
+    target = {
+        "defect_type": defect_type,
+        "customer_name": customer_name,
+        "product_name": product_name,
+        "product_no": product_no,
+        "part_name": part_name,
+        "process_name": process_name,
+        "defect_location": defect_location,
+        "claim_text": claim_text,
+        "extracted_text": extracted_text,
+        "claim_summary": claim_summary,
+        "root_cause_analysis": root_cause_analysis,
+        "corrective_action": corrective_action,
+        "preventive_action": preventive_action,
+    }
+    fetch_limit = max(limit * 10, 50)
+
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """SELECT * FROM (
-                    SELECT *, 2 AS score FROM defect_reports
-                    WHERE report_status = 'approved' AND defect_type = %s AND customer_name = %s
-                    UNION ALL
-                    SELECT *, 1 AS score FROM defect_reports
+            if defect_type:
+                cur.execute(
+                    """
+                    SELECT * FROM defect_reports
                     WHERE report_status = 'approved' AND defect_type = %s
-                      AND (%s IS NULL OR customer_name != %s)
-                ) AS t ORDER BY score DESC, report_id DESC LIMIT %s""",
-                (defect_type, customer_name or "", defect_type, customer_name, customer_name or "", limit),
-            )
-            return cur.fetchall()
+                    ORDER BY report_id DESC
+                    LIMIT %s
+                    """,
+                    (defect_type, fetch_limit),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT * FROM defect_reports
+                    WHERE report_status = 'approved'
+                    ORDER BY report_id DESC
+                    LIMIT %s
+                    """,
+                    (fetch_limit,),
+                )
+            cases = cur.fetchall()
+
+    results = []
+    for case in cases:
+        score, score_details = _score_similar_case(target, case)
+        if score < min_score:
+            continue
+        case["similarity_score"] = score
+        case["similarity_level"] = _similarity_level(score)
+        case["score_details"] = score_details
+        results.append(case)
+
+    results.sort(key=lambda item: (item["similarity_score"], item["report_id"]), reverse=True)
+    selected = results[:limit]
+
+    if selected:
+        report_ids = [item["report_id"] for item in selected]
+        placeholders = ", ".join(["%s"] * len(report_ids))
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT *
+                    FROM defect_report_images
+                    WHERE report_id IN ({placeholders})
+                    ORDER BY image_id
+                    """,
+                    report_ids,
+                )
+                images_by_report = {}
+                for image in cur.fetchall():
+                    images_by_report.setdefault(image["report_id"], []).append(image)
+        for item in selected:
+            item["images"] = images_by_report.get(item["report_id"], [])
+
+    return selected

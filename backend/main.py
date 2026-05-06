@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import claim, ai
+from backend.routers import claim, report, ai
 from backend.models.database import init_db
 
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +20,7 @@ app.add_middleware(
 )
 
 app.include_router(claim.router)
+app.include_router(report.router)
 app.include_router(ai.router)
 
 _BASE = Path(__file__).parent.parent
