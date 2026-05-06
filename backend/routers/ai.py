@@ -8,14 +8,12 @@ import httpx
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pathlib import Path
 
+from backend.ai.ollama import call_ollama
 from backend.models.database import get_defect_types
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["ai"])
-
-OLLAMA_URL   = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "exaone3.5:7.8b"
 
 DEFECT_LABELS = {
     "OUTER_DAMAGE": "외관 손상",
@@ -37,17 +35,6 @@ def _get_model():
             logger.error(f"모델 로드 실패: {e}")
             _model = False  # False = 로드 시도했으나 실패
     return _model if _model else None
-
-
-async def _ollama(prompt: str) -> str:
-    async with httpx.AsyncClient(timeout=120) as client:
-        res = await client.post(OLLAMA_URL, json={
-            "model":  OLLAMA_MODEL,
-            "prompt": prompt,
-            "stream": False,
-        })
-        res.raise_for_status()
-        return res.json().get("response", "")
 
 
 # ── AI 이미지 분류 ─────────────────────────────────────────────────────────────
@@ -145,7 +132,7 @@ async def parse_claim(text: str = Form(...)):
 출력:"""
 
     try:
-        response = await _ollama(prompt)
+        response = await call_ollama(prompt)
         match = re.search(r'\{.*\}', response, re.DOTALL)
         if not match:
             raise HTTPException(status_code=500, detail="파싱 실패")

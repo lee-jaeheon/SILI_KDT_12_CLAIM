@@ -2,17 +2,14 @@ import re
 import json
 import logging
 
-import httpx
 from fastapi import APIRouter, HTTPException
 
+from backend.ai.ollama import call_ollama
 from backend.models.database import get_report
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/reports", tags=["report"])
-
-OLLAMA_URL   = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "exaone3.5:7.8b"
 
 DEFECT_LABELS = {
     "OUTER_DAMAGE": "외관 손상",
@@ -20,21 +17,6 @@ DEFECT_LABELS = {
     "HEMMING":      "헤밍 불량",
     "HOLE_DEFORM":  "홀 변형",
 }
-
-
-async def _ollama(prompt: str) -> str:
-    try:
-        async with httpx.AsyncClient(timeout=120) as client:
-            res = await client.post(OLLAMA_URL, json={
-                "model":  OLLAMA_MODEL,
-                "prompt": prompt,
-                "stream": False,
-            })
-            res.raise_for_status()
-            return res.json().get("response", "")
-    except Exception as e:
-        logger.error(f"Ollama 오류: {e}")
-        raise
 
 
 @router.get("/{report_id}/generate")
@@ -70,7 +52,7 @@ async def generate_report(report_id: int):
 {{"불량개요": "...", "원인분석": "...", "대책": "..."}}"""
 
     try:
-        response = await _ollama(prompt)
+        response = await call_ollama(prompt)
         match    = re.search(r'\{.*\}', response, re.DOTALL)
         sections = json.loads(match.group()) if match else {}
     except Exception:

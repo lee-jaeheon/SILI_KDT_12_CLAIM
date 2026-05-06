@@ -1,8 +1,13 @@
 venv/
 __pycache__/
 *.pyc
-*.pth
 database/
 uploads/
-models/
+# AI 모델 가중치 파일
+*.pt
+*.pth
+*.h5
+*.onnx
+*.pkl
+/models/
 .env

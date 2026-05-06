@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from backend.models.database import (
     insert_report, get_report, list_reports, update_report, delete_report,
     insert_image, get_images, delete_image,
-    search_similar,
+    search_similar, get_defect_types,
 )
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -34,8 +34,19 @@ def _save_image(image: UploadFile) -> str:
 # ── CRUD ───────────────────────────────────────────────────────────────────────
 
 @router.get("/")
-def get_reports(status: Optional[str] = Query(None)):
-    return list_reports(status)
+def get_reports(
+    status: Optional[str] = Query(None),
+    page:   int           = Query(1, ge=1),
+    limit:  int           = Query(20, ge=1, le=100),
+):
+    offset = (page - 1) * limit
+    result = list_reports(status=status, limit=limit, offset=offset)
+    return {
+        "total": result["total"],
+        "page":  page,
+        "limit": limit,
+        "items": result["items"],
+    }
 
 
 @router.post("/")
@@ -55,8 +66,16 @@ async def create_report(
     issue_date:        str            = Form(""),
     ai_defect_type:    str            = Form(""),
     ai_confidence:     Optional[float] = Form(None),
+    claim_text:        str            = Form(""),
+    extracted_text:    str            = Form(""),
     image: Optional[UploadFile] = File(None),
 ):
+    # defect_type 유효성 검증
+    if defect_type:
+        valid_codes = {d["code"] for d in get_defect_types()}
+        if defect_type not in valid_codes:
+            raise HTTPException(status_code=400, detail=f"유효하지 않은 불량 유형입니다: {defect_type}")
+
     image_path = None
     if image and image.filename:
         image_path = _save_image(image)
@@ -77,6 +96,8 @@ async def create_report(
         author_name=author_name or None,
         delivery_date=delivery_date or None,
         issue_date=issue_date or None,
+        claim_text=claim_text or None,
+        extracted_text=extracted_text or None,
     )
 
     if image_path:
