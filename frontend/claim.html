@@ -305,11 +305,10 @@
             <label>불량 유형 확정 *</label>
             <select id="defectType">
               <option value="">-- 선택하세요 --</option>
-              <option value="외관손상">외관손상</option>
-              <option value="실링 불량">실링 불량</option>
-              <option value="헤밍 불량">헤밍 불량</option>
-              <option value="홀 변형">홀 변형</option>
-              <option value="기타">기타</option>
+              <option value="OUTER_DAMAGE">외관 손상</option>
+              <option value="SEALING">실링 불량</option>
+              <option value="HEMMING">헤밍 불량</option>
+              <option value="HOLE_DEFORM">홀 변형</option>
             </select>
           </div>
         </div>
@@ -346,6 +345,13 @@
 
   <script src="js/main.js"></script>
   <script>
+    const DEFECT_LABELS = {
+      'OUTER_DAMAGE': '외관 손상',
+      'SEALING':      '실링 불량',
+      'HEMMING':      '헤밍 불량',
+      'HOLE_DEFORM':  '홀 변형',
+    };
+
     const user = JSON.parse(sessionStorage.getItem('user'));
     if (!user) {
       location.href = 'index.html';
@@ -360,12 +366,13 @@
       location.href = 'index.html';
     }
 
-    function handleImage(input) {
+    async function handleImage(input) {
       const file = input.files[0];
       if (!file) return;
 
+      // 미리보기
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = (e) => {
         document.getElementById('previewImg').src = e.target.result;
         document.getElementById('uploadFilename').textContent = file.name;
         document.getElementById('uploadPreview').style.display = 'block';
@@ -373,41 +380,47 @@
       };
       reader.readAsDataURL(file);
 
-      // TODO: 실제 AI 분류 API 연동 (현재는 시연용 mock)
-      setTimeout(() => {
-        const types = ['외관손상', '실링 불량', '헤밍 불량'];
-        const suggestion = types[Math.floor(Math.random() * types.length)];
-        const conf = Math.floor(Math.random() * 20 + 78);
+      // AI 분류 API 호출
+      document.getElementById('aiBox').style.display = 'block';
+      document.getElementById('aiResult').textContent = '분석 중...';
+      document.getElementById('aiConf').textContent = '';
 
-        document.getElementById('aiBox').style.display = 'block';
-        document.getElementById('aiResult').textContent = suggestion;
-        document.getElementById('aiConf').textContent = `신뢰도 ${conf}%`;
-        document.getElementById('defectType').value = suggestion;
+      const formData = new FormData();
+      formData.append('image', file);
 
-        loadDraft(suggestion);
-      }, 800);
+      const data = await apiFetch('/api/classify', { method: 'POST', body: formData });
+      if (data) {
+        document.getElementById('aiResult').textContent = data.label;
+        document.getElementById('aiConf').textContent =
+          `신뢰도 ${data.confidence_pct}${data.is_dummy ? ' (시연용)' : ''}`;
+        document.getElementById('defectType').value = data.defect_type;
+        loadDraft(data.defect_type);
+      } else {
+        document.getElementById('aiResult').textContent = '분류 실패';
+        document.getElementById('aiConf').textContent = '수동으로 선택해 주세요';
+      }
     }
 
-    function loadDraft(defectType) {
-      // TODO: 실제 유사사례 API 연동
-      const drafts = {
-        '외관손상': { code: 'M01', action: '연마 공정 조건 재설정 및 작업자 교육 실시' },
-        '실링 불량': { code: 'M03', action: '작업 환경 청결 유지 및 이물 유입 차단 조치' },
-        '헤밍 불량': { code: 'M02', action: '취급 주의 교육 및 포장 방법 개선' },
-      };
-      const draft = drafts[defectType];
-      if (draft) {
-        document.getElementById('causeCode').value = draft.code;
-        document.getElementById('action').value = draft.action;
-        document.getElementById('draftBox').textContent = `유사 사례 기반으로 초안이 생성되었습니다. 내용을 확인 후 수정하세요.`;
+    async function loadDraft(defectType) {
+      const supplier = document.getElementById('supplier').value.trim();
+      const params = new URLSearchParams({ defect_type: defectType, limit: 1 });
+      if (supplier) params.append('customer_name', supplier);
+
+      const data = await apiFetch(`/api/reports/similar?${params}`);
+      if (data && data.length > 0) {
+        const latest = data[0];
+        document.getElementById('causeCode').value = latest.root_cause_analysis?.slice(0, 30) || '';
+        document.getElementById('action').value = latest.corrective_action || '';
+        document.getElementById('draftBox').textContent =
+          `유사 사례(${latest.customer_name} · ${latest.received_date?.slice(0,10)}) 기반으로 초안이 생성되었습니다. 내용을 확인 후 수정하세요.`;
         document.getElementById('draftBox').style.display = 'block';
         document.getElementById('draftHint').style.display = 'block';
       }
     }
 
-    function submitClaim() {
-      const supplier = document.getElementById('supplier').value.trim();
-      const handler = document.getElementById('handler').value.trim();
+    async function submitClaim() {
+      const supplier   = document.getElementById('supplier').value.trim();
+      const handler    = document.getElementById('handler').value.trim();
       const defectType = document.getElementById('defectType').value;
 
       if (!supplier || !handler || !defectType) {
@@ -415,9 +428,32 @@
         return;
       }
 
-      // TODO: 실제 FastAPI POST /claims/ 연동
-      alert(`접수 완료!\n납품처: ${supplier}\n불량유형: ${defectType}\n담당자: ${handler}`);
-      location.href = 'hub.html';
+      const imageFile = document.getElementById('imageInput').files[0];
+      const formData  = new FormData();
+      formData.append('customer_name', supplier);
+      formData.append('defect_type',   defectType);
+      formData.append('handler',       handler);
+      formData.append('claim_text',    document.getElementById('memo').value.trim());
+
+      const aiLabel = document.getElementById('aiResult').textContent;
+      if (aiLabel && aiLabel !== '-' && aiLabel !== '분석 중...' && aiLabel !== '분류 실패') {
+        formData.append('ai_defect_type', defectType);
+      }
+      if (imageFile) formData.append('image', imageFile);
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = '저장 중...';
+
+      const data = await apiFetch('/api/reports/', { method: 'POST', body: formData });
+      if (data && data.report_id) {
+        alert(`접수 완료!\n납품처: ${supplier}\n불량유형: ${DEFECT_LABELS[defectType] || defectType}\n담당자: ${handler}`);
+        location.href = 'hub.html';
+      } else {
+        alert('접수에 실패했습니다. 다시 시도해 주세요.');
+        btn.disabled = false;
+        btn.textContent = '접수 및 확정 저장';
+      }
     }
   </script>
 </body>
