@@ -1,11 +1,10 @@
 import logging
-import os
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import claim, report, ai
+from backend.routers import claim, ai
 from backend.models.database import init_db
 
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +19,6 @@ app.add_middleware(
 )
 
 app.include_router(claim.router)
-app.include_router(report.router)
 app.include_router(ai.router)
 
 _BASE = Path(__file__).parent.parent
@@ -29,7 +27,7 @@ app.mount("/uploads", StaticFiles(directory=str(_BASE / "uploads")),        name
 app.mount("/css",     StaticFiles(directory=str(_BASE / "frontend" / "css")),   name="css")
 app.mount("/js",      StaticFiles(directory=str(_BASE / "frontend" / "js")),    name="js")
 app.mount("/fonts",   StaticFiles(directory=str(_BASE / "frontend" / "fonts")), name="fonts")
-
+ 
 
 @app.on_event("startup")
 async def startup():
@@ -40,14 +38,27 @@ async def startup():
 def index():
     return FileResponse(str(_BASE / "frontend" / "index.html"))
 
+@app.get("/hub")
+def hub_page():
+    return FileResponse(str(_BASE / "frontend" / "hub.html"))
+
 @app.get("/list")
 def list_page():
     return FileResponse(str(_BASE / "frontend" / "list.html"))
+
+@app.get("/claim")
+def claim_page():
+    return FileResponse(str(_BASE / "frontend" / "claim.html"))
+
+@app.get("/report-draft")
+def report_draft_page():
+    return FileResponse(str(_BASE / "frontend" / "report-draft.html"))
+
+@app.get("/report-download")
+def report_download_page():
+    return FileResponse(str(_BASE / "frontend" / "report-download.html"))
 
 @app.get("/search")
 def search_page():
     return FileResponse(str(_BASE / "frontend" / "search.html"))
 
-@app.get("/test")
-def test_page():
-    return FileResponse(str(_BASE / "frontend" / "test.html"))

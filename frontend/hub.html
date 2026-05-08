@@ -37,7 +37,7 @@
     </div>
 
     <div class="cards">
-      <div class="card" onclick="location.href='claim.html'">
+      <div class="card" onclick="location.href='/claim'">
         <div class="card-icon primary">
           <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -53,7 +53,7 @@
         <div class="card-arrow">→</div>
       </div>
 
-      <div class="card" onclick="location.href='list.html'">
+      <div class="card" onclick="location.href='/list'">
         <div class="card-icon dark">
           <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="8" y1="6" x2="21" y2="6"/>
@@ -85,7 +85,7 @@
   <script>
     const user = JSON.parse(sessionStorage.getItem('user'));
     if (!user) {
-      location.href = 'index.html';
+      location.href = '/';
     } else {
       document.getElementById('userAvatar').textContent = user.name.charAt(0);
       document.getElementById('userName').textContent = user.name + ' 담당자';
@@ -93,7 +93,7 @@
 
     function doLogout() {
       sessionStorage.removeItem('user');
-      location.href = 'index.html';
+      location.href = '/';
     }
   </script>
 </body>

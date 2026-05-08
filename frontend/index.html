@@ -161,7 +161,7 @@
       const user = USERS.find(u => u.id === id && u.pw === pw);
       if (user) {
         sessionStorage.setItem('user', JSON.stringify(user));
-        location.href = 'hub.html';
+        location.href = '/hub';
       } else {
         document.getElementById('loginError').style.display = 'block';
       }

@@ -109,7 +109,7 @@ async def parse_file(file: UploadFile = File(...)):
     if not text.strip():
         raise HTTPException(status_code=400, detail="파일에서 텍스트를 추출할 수 없습니다.")
 
-    return {"extracted_text": text[:3000]}
+    return {"extracted_text": text[:8000]}
 
 
 # ── 텍스트 → 필드 파싱 (Ollama) ───────────────────────────────────────────────

@@ -108,9 +108,9 @@ def _seed_defect_types(cur):
         """,
         [
             ("OUTER_DAMAGE", "\uc678\uad00 \uc190\uc0c1", 102, "\uc678\uad00 \uae01\ud798, \ucc0d\ud798, \ubcc0\ud615 \ub4f1 \uc721\uc548 \uc2dd\ubcc4 \ubd88\ub7c9"),
-            ("SEALING", "\uc2e4\ub9c1 \ubd88\ub7c9", 204, "\uc2e4\ub9c1\uc7ac \ubbf8\ub3c4\ud3ec, \ubd80\uc871, \uc704\uce58 \uc774\ud0c8"),
-            ("HEMMING", "\ud5e4\ubc0d \ubd88\ub7c9", 212, "\ud5e4\ubc0d \uacf5\uc815 \uc811\ud569 \ubd88\ub7c9"),
-            ("HOLE_DEFORM", "\ud640 \ubcc0\ud615", 213, "\ud640 \uce58\uc218 \uc774\ud0c8, \ubcc0\ud615"),
+            ("SEALING",      "\uc2e4\ub9c1 \ubd88\ub7c9", 204, "\uc2e4\ub9c1\uc7ac \ubbf8\ub3c4\ud3ec, \ubd80\uc871, \uc704\uce58 \uc774\ud0c8"),
+            ("HEMMING",      "\ud5e4\ubc0d \ubd88\ub7c9", 212, "\ud5e4\ubc0d \uacf5\uc815 \uc811\ud569 \ubd88\ub7c9"),
+            ("HOLE_DEFORM",  "\ud640 \ubcc0\ud615",   213, "\ud640 \uce58\uc218 \uc774\ud0c8, \ubcc0\ud615"),
         ],
     )
 
@@ -143,52 +143,56 @@ def _seed_sample_cases(cur):
     if cur.fetchone()["cnt"] > 0:
         return
 
-    sql_text = SAMPLE_SQL_PATH.read_text(encoding="utf-8")
-    report_rows = _extract_insert_rows(sql_text, "defect_reports")
-    image_rows = _extract_insert_rows(sql_text, "defect_report_images")
+    try:
+        sql_text = SAMPLE_SQL_PATH.read_text(encoding="utf-8")
+        report_rows = _extract_insert_rows(sql_text, "defect_reports")
+        image_rows = _extract_insert_rows(sql_text, "defect_report_images")
 
-    if report_rows:
-        cur.executemany(
-            """
-            INSERT IGNORE INTO defect_reports (
-                report_id, document_no, received_date, defect_type, defect_code,
-                defect_location, customer_name, product_name, product_no, part_name,
-                process_name, lot_no, delivery_quantity, claim_text, extracted_text,
-                claim_summary, root_cause_analysis, corrective_action,
-                preventive_action, handler, author_name, reviewer_name,
-                approver_name, report_status
-            ) VALUES (
-                %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s,
-                %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s
-            )
-            """,
-            [
-                (
-                    row[0], row[1], row[2], row[4], row[5],
-                    row[6], row[7], row[8], row[9], row[10],
-                    row[11], row[12], row[13], row[14], row[15],
-                    row[16], row[18], row[19],
-                    row[20], row[21], row[22], row[23],
-                    row[24], row[25],
+        if report_rows:
+            cur.executemany(
+                """
+                INSERT IGNORE INTO defect_reports (
+                    report_id, document_no, received_date, defect_type, defect_code,
+                    defect_location, customer_name, product_name, product_no, part_name,
+                    process_name, lot_no, delivery_quantity, claim_text, extracted_text,
+                    claim_summary, root_cause_analysis, corrective_action,
+                    preventive_action, handler, author_name, reviewer_name,
+                    approver_name, report_status
+                ) VALUES (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s
                 )
-                for row in report_rows
-            ],
-        )
+                """,
+                [
+                    (
+                        row[0], row[1], row[2], row[4], row[5],
+                        row[6], row[7], row[8], row[9], row[10],
+                        row[11], row[12], row[13], row[14], row[15],
+                        row[16], row[18], row[19],
+                        row[20], row[21], row[22], row[23],
+                        row[24], row[25],
+                    )
+                    for row in report_rows
+                ],
+            )
 
-    if image_rows:
-        cur.executemany(
-            """
-            INSERT IGNORE INTO defect_report_images (
-                image_id, report_id, image_type, image_path,
-                image_description, uploaded_at
-            ) VALUES (%s, %s, %s, %s, %s, %s)
-            """,
-            image_rows,
-        )
+        if image_rows:
+            cur.executemany(
+                """
+                INSERT IGNORE INTO defect_report_images (
+                    image_id, report_id, image_type, image_path,
+                    image_description, uploaded_at
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                image_rows,
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("샘플 데이터 로드 실패 (무시됨): %s", e)
 
 
 @contextmanager
@@ -291,10 +295,14 @@ def init_db():
                     INDEX idx_images_report (report_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
-            _ensure_schema_extensions(cur)
             _seed_defect_types(cur)
             _seed_sample_cases(cur)
             _seed_document_sequences(cur)
+
+    # DDL(ALTER TABLE)은 트랜잭션 밖 별도 커넥션에서 실행
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            _ensure_schema_extensions(cur)
 
 
 # ?? defect_types ???????????????????????????????????????????????????????????????
@@ -335,6 +343,7 @@ def _generate_document_no(conn) -> str:
 def insert_report(
     customer_name: str,
     defect_type: str = None,
+    defect_code: str = None,
     defect_location: str = None,
     ai_defect_type: str = None,
     ai_confidence: float = None,
@@ -353,6 +362,11 @@ def insert_report(
     author_name: str = None,
     delivery_date: str = None,
     issue_date: str = None,
+    root_cause_analysis: str = None,
+    corrective_action: str = None,
+    preventive_action: str = None,
+    reviewer_name: str = None,
+    approver_name: str = None,
 ) -> int:
     with get_conn() as conn:
         doc_no   = _generate_document_no(conn)
@@ -361,20 +375,24 @@ def insert_report(
             cur.execute(
                 """INSERT INTO defect_reports (
                     document_no, received_date, customer_name,
-                    defect_type, defect_location,
+                    defect_type, defect_code, defect_location,
                     ai_defect_type, ai_confidence, llm_model,
                     product_name, product_no, part_name, process_name, lot_no,
                     delivery_quantity, defect_quantity,
                     claim_text, extracted_text, claim_summary,
-                    handler, author_name, delivery_date, issue_date
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    handler, author_name, delivery_date, issue_date,
+                    root_cause_analysis, corrective_action, preventive_action,
+                    reviewer_name, approver_name
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (doc_no, received, customer_name,
-                 defect_type, defect_location,
+                 defect_type, defect_code, defect_location,
                  ai_defect_type, ai_confidence, llm_model,
                  product_name, product_no, part_name, process_name, lot_no,
                  delivery_quantity, defect_quantity,
                  claim_text, extracted_text, claim_summary,
-                 handler, author_name, delivery_date, issue_date),
+                 handler, author_name, delivery_date, issue_date,
+                 root_cause_analysis, corrective_action, preventive_action,
+                 reviewer_name, approver_name),
             )
             return cur.lastrowid
 
@@ -416,6 +434,20 @@ def list_reports(status: str = None, limit: int = 20, offset: int = 0) -> dict:
                 )
             items = cur.fetchall()
 
+        if items:
+            report_ids = [item["report_id"] for item in items]
+            placeholders = ", ".join(["%s"] * len(report_ids))
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT * FROM defect_report_images WHERE report_id IN ({placeholders}) ORDER BY image_id",
+                    report_ids,
+                )
+                images_by_report = {}
+                for img in cur.fetchall():
+                    images_by_report.setdefault(img["report_id"], []).append(img)
+            for item in items:
+                item["images"] = images_by_report.get(item["report_id"], [])
+
     return {"total": total, "items": items}
 
 
@@ -430,10 +462,15 @@ ALLOWED_UPDATE_FIELDS = {
     "report_status", "llm_model",
 }
 
+VALID_REPORT_STATUSES = {"draft", "submitted", "approved", "rejected"}
+
+
 def update_report(report_id: int, fields: dict) -> str:
     update = {k: v for k, v in fields.items() if k in ALLOWED_UPDATE_FIELDS}
     if not update:
         return "no_fields"
+    if "report_status" in update and update["report_status"] not in VALID_REPORT_STATUSES:
+        return "invalid_status"
     cols = ", ".join(f"{k}=%s" for k in update)
     vals = list(update.values()) + [report_id]
     with get_conn() as conn:
@@ -660,23 +697,22 @@ def search_similar(
                 )
             cases = cur.fetchall()
 
-    results = []
-    for case in cases:
-        score, score_details = _score_similar_case(target, case)
-        if score < min_score:
-            continue
-        case["similarity_score"] = score
-        case["similarity_level"] = _similarity_level(score)
-        case["score_details"] = score_details
-        results.append(case)
+        results = []
+        for case in cases:
+            score, score_details = _score_similar_case(target, case)
+            if score < min_score:
+                continue
+            case["similarity_score"] = score
+            case["similarity_level"] = _similarity_level(score)
+            case["score_details"] = score_details
+            results.append(case)
 
-    results.sort(key=lambda item: (item["similarity_score"], item["report_id"]), reverse=True)
-    selected = results[:limit]
+        results.sort(key=lambda item: (item["similarity_score"], item["report_id"]), reverse=True)
+        selected = results[:limit]
 
-    if selected:
-        report_ids = [item["report_id"] for item in selected]
-        placeholders = ", ".join(["%s"] * len(report_ids))
-        with get_conn() as conn:
+        if selected:
+            report_ids = [item["report_id"] for item in selected]
+            placeholders = ", ".join(["%s"] * len(report_ids))
             with conn.cursor() as cur:
                 cur.execute(
                     f"""
@@ -690,7 +726,7 @@ def search_similar(
                 images_by_report = {}
                 for image in cur.fetchall():
                     images_by_report.setdefault(image["report_id"], []).append(image)
-        for item in selected:
-            item["images"] = images_by_report.get(item["report_id"], [])
+            for item in selected:
+                item["images"] = images_by_report.get(item["report_id"], [])
 
     return selected
