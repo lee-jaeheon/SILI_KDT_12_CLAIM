@@ -27,7 +27,7 @@ app.mount("/uploads", StaticFiles(directory=str(_BASE / "uploads")),        name
 app.mount("/css",     StaticFiles(directory=str(_BASE / "frontend" / "css")),   name="css")
 app.mount("/js",      StaticFiles(directory=str(_BASE / "frontend" / "js")),    name="js")
 app.mount("/fonts",   StaticFiles(directory=str(_BASE / "frontend" / "fonts")), name="fonts")
- 
+
 
 @app.on_event("startup")
 async def startup():
@@ -48,17 +48,21 @@ def list_page():
 
 @app.get("/claim")
 def claim_page():
-    return FileResponse(str(_BASE / "frontend" / "claim.html"))
+    return FileResponse(str(_BASE / "frontend" / "claim_step1.html"))
 
-@app.get("/report-draft")
-def report_draft_page():
-    return FileResponse(str(_BASE / "frontend" / "report-draft.html"))
+@app.get("/claim-step2")
+def claim_step2_page():
+    return FileResponse(str(_BASE / "frontend" / "claim_step2.html"))
 
-@app.get("/report-download")
-def report_download_page():
+@app.get("/claim-step3")
+def claim_step3_page():
     return FileResponse(str(_BASE / "frontend" / "report-download.html"))
 
-@app.get("/search")
-def search_page():
-    return FileResponse(str(_BASE / "frontend" / "search.html"))
+@app.get("/cases")
+def cases_page():
+    return FileResponse(str(_BASE / "frontend" / "cases.html"))
+
+@app.get("/logo.png")
+def logo():
+    return FileResponse(str(_BASE / "frontend" / "logo.png"))
 

@@ -2,8 +2,7 @@ venv/
 __pycache__/
 *.pyc
 database/
-uploads/
-!uploads/
+uploads/*
 !uploads/sample_cases/
 !uploads/sample_cases/*.jpg
 # AI 모델 가중치 파일

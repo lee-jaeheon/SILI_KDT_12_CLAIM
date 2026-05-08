@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>품질 사례 DB · 납품 불량 클레임 대응 시스템</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid #e0e0e0; }
+    .tab { padding: 10px 22px; font-size: 15px; cursor: pointer; color: #888; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; font-family: inherit; min-width: 120px; text-align: center; }
+    .tab.active { color: #0d6b6c; font-weight: 500; border-bottom-color: #0d6b6c; }
+    .page-wrap { max-width: 1100px; margin: 0 auto; padding: 32px 28px 48px; flex: 1; }
+    .page-header { margin-bottom: 28px; }
+    .back-btn { font-size: 14px; color: #888; cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 8px; display: block; }
+    .back-btn:hover { color: #2c2c2c; }
+    .page-title { font-size: 24px; font-weight: 500; color: #2c2c2c; }
+    .page-sub { font-size: 14px; color: #888; margin-top: 3px; }
+
+    .search-section { background: #fff; border-radius: 16px; border: 1px solid #e0e0e0; padding: 20px 24px; margin-bottom: 24px; }
+    .search-row { display: flex; gap: 12px; align-items: center; }
+    .search-wrap { flex: 1; display: flex; align-items: center; gap: 10px; background: #f8f8f8; border: 1px solid #e0e0e0; border-radius: 10px; padding: 11px 16px; }
+    .search-wrap input { border: none; background: transparent; font-size: 15px; color: #2c2c2c; outline: none; width: 100%; font-family: inherit; }
+    .filter-select { padding: 11px 14px; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 14px; color: #555; background: #fff; outline: none; cursor: pointer; font-family: inherit; }
+
+    .cases-stats { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    .cases-stat { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 12px 20px; display: flex; align-items: center; gap: 10px; }
+    .cases-stat-val { font-size: 22px; font-weight: 500; color: #0d6b6c; }
+    .cases-stat-label { font-size: 13px; color: #888; }
+    .defect-filter-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .defect-filter-tab { padding: 7px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; border: 1px solid #e0e0e0; background: #fff; color: #888; transition: all .15s; font-family: inherit; }
+    .defect-filter-tab.active { background: #0d6b6c; color: #fff; border-color: #0d6b6c; }
+
+    .cases-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    @media (max-width: 900px) { .cases-grid { grid-template-columns: repeat(2, 1fr); } }
+    .case-card { background: #fff; border-radius: 14px; border: 1px solid #e0e0e0; padding: 20px; cursor: pointer; transition: all .15s; }
+    .case-card:hover { border-color: #0d6b6c; box-shadow: 0 4px 20px rgba(13,107,108,.08); transform: translateY(-2px); }
+    .case-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+    .case-card-num { font-size: 12px; color: #bbb; font-family: monospace; }
+    .case-card-date { font-size: 12px; color: #bbb; }
+    .case-card-company { font-size: 15px; font-weight: 500; color: #2c2c2c; margin-bottom: 8px; }
+    .case-card-type { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; margin-bottom: 12px; }
+    .type-OUTER_DAMAGE { background: #ffe8e8; color: #c0392b; }
+    .type-SEALING      { background: #e8f0ff; color: #1a4fa0; }
+    .type-HEMMING      { background: #fff3e0; color: #a06010; }
+    .type-HOLE_DEFORM  { background: #e8f5e9; color: #1e6e3e; }
+    .type-default      { background: #f0f0f0; color: #555; }
+    .case-card-preview { font-size: 13px; color: #666; line-height: 1.6; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+    .case-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
+    .case-card-product { font-size: 12px; color: #aaa; }
+    .case-card-arrow { font-size: 14px; color: #0d6b6c; font-weight: 500; }
+    .cases-empty { grid-column: 1/-1; text-align: center; padding: 60px; color: #bbb; font-size: 15px; }
+    .cases-loading { grid-column: 1/-1; text-align: center; padding: 60px; color: #aaa; font-size: 15px; }
+
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: #fff; border-radius: 16px; width: 100%; max-width: 720px; max-height: 90vh; overflow-y: auto; padding: 28px 32px; box-shadow: 0 20px 60px rgba(0,0,0,.15); }
+    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    .modal-title { font-size: 18px; font-weight: 500; color: #2c2c2c; }
+    .modal-sub { font-size: 13px; color: #888; margin-top: 4px; }
+    .modal-close { background: none; border: none; font-size: 26px; color: #aaa; cursor: pointer; padding: 0; line-height: 1; }
+    .modal-close:hover { color: #2c2c2c; }
+    .modal-type-badge { display: inline-block; padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; margin-bottom: 20px; }
+    .modal-section { margin-bottom: 22px; }
+    .modal-section-title { font-size: 14px; font-weight: 500; color: #2c2c2c; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0; }
+    .modal-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .info-label { font-size: 12px; color: #888; margin-bottom: 3px; }
+    .info-value { font-size: 14px; color: #2c2c2c; font-weight: 500; }
+    .modal-text-block { background: #f8f8f8; border-radius: 10px; padding: 14px 16px; font-size: 14px; color: #444; line-height: 1.7; margin-top: 8px; }
+    .modal-text-label { font-size: 13px; font-weight: 500; color: #555; margin-bottom: 6px; margin-top: 14px; }
+    .img-preview { width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px; margin-top: 10px; }
+    .img-placeholder { width: 100%; height: 80px; background: #f5f5f5; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 13px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="logo-area">
+      <img src="logo.png" class="logo-icon" alt="로고" />
+      <div>
+        <div class="logo-title">납품 불량 클레임 대응 시스템</div>
+        <div class="logo-sub">AJIN INDUSTRIAL · QA 관리 시스템</div>
+      </div>
+    </div>
+    <div class="user-info">
+      <div class="user-avatar" id="userAvatar">홍</div>
+      <div>
+        <div class="user-name" id="userName">홍길동 담당자</div>
+        <div class="user-team">품질보증팀</div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="page-wrap">
+
+    <div class="page-header">
+      <button class="back-btn" onclick="location.href='/hub'">← 홈으로</button>
+      <div class="page-title">품질 사례 DB</div>
+      <div class="page-sub">처리 완료된 클레임 사례를 검색하고 참고할 수 있습니다</div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchCasesTab('stats', this)">통계 분석</button>
+      <button class="tab" onclick="switchCasesTab('cases', this)">사례 목록</button>
+    </div>
+
+    <!-- 통계 분석 탭 -->
+    <div id="tab-stats">
+      <div style="background:#fff;border-radius:16px;border:1px solid #e0e0e0;padding:28px 32px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;">
+          <div style="font-size:17px;font-weight:500;color:#2c2c2c;">클레임 통계 분석</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="display:flex;gap:6px;">
+              <button class="defect-filter-tab active" onclick="switchPeriod('monthly', this)">월별</button>
+              <button class="defect-filter-tab" onclick="switchPeriod('quarterly', this)">분기별</button>
+              <button class="defect-filter-tab" onclick="switchPeriod('yearly', this)">연별</button>
+            </div>
+            <select class="filter-select" id="yearSelect" onchange="rerenderStats()"></select>
+          </div>
+        </div>
+        <div style="margin-bottom:28px;">
+          <div style="font-size:14px;font-weight:500;color:#888;margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px;">주요 불량 유형 Top 3</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;" id="topDefects"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:3fr 2fr;gap:20px;align-items:start;">
+          <div style="background:#f8f9fa;border-radius:12px;padding:20px 24px;">
+            <div style="font-size:14px;font-weight:500;color:#2c2c2c;margin-bottom:16px;" id="periodChartTitle">월별 클레임 접수 현황</div>
+            <canvas id="periodChart" height="100"></canvas>
+          </div>
+          <div style="background:#f8f9fa;border-radius:12px;padding:20px 24px;display:flex;flex-direction:column;align-items:center;">
+            <div style="font-size:14px;font-weight:500;color:#2c2c2c;margin-bottom:16px;width:100%;">불량 유형별 비율</div>
+            <canvas id="defectChart" style="max-width:200px;"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 사례 목록 탭 -->
+    <div id="tab-cases" style="display:none;">
+      <div class="search-section">
+        <div class="search-row">
+          <div class="search-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input id="searchInput" placeholder="납품처, 품명, 원인, 대책 키워드 검색..." oninput="filterCases()" />
+          </div>
+          <select class="filter-select" id="filterDefect" onchange="filterCases()">
+            <option value="">전체 유형</option>
+            <option value="OUTER_DAMAGE">외관 손상</option>
+            <option value="SEALING">실링 불량</option>
+            <option value="HEMMING">헤밍 불량</option>
+            <option value="HOLE_DEFORM">홀 변형</option>
+          </select>
+        </div>
+      </div>
+      <div class="cases-stats">
+        <div class="cases-stat">
+          <div class="cases-stat-val" id="statTotal">-</div>
+          <div class="cases-stat-label">전체 사례</div>
+        </div>
+        <div class="cases-stat">
+          <div class="cases-stat-val" id="statFiltered">-</div>
+          <div class="cases-stat-label">검색 결과</div>
+        </div>
+        <div style="flex:1;"></div>
+        <div class="defect-filter-tabs">
+          <button class="defect-filter-tab active" onclick="setDefectTab('', this)">전체</button>
+          <button class="defect-filter-tab" onclick="setDefectTab('OUTER_DAMAGE', this)">외관 손상</button>
+          <button class="defect-filter-tab" onclick="setDefectTab('SEALING', this)">실링 불량</button>
+          <button class="defect-filter-tab" onclick="setDefectTab('HEMMING', this)">헤밍 불량</button>
+          <button class="defect-filter-tab" onclick="setDefectTab('HOLE_DEFORM', this)">홀 변형</button>
+        </div>
+      </div>
+      <div class="cases-grid" id="casesGrid">
+        <div class="cases-loading">사례를 불러오는 중...</div>
+      </div>
+    </div>
+
+  </div><!-- /page-wrap -->
+
+  <!-- 상세 모달 -->
+  <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="modalTitle"></div>
+          <div class="modal-sub" id="modalSub"></div>
+        </div>
+        <button class="modal-close" onclick="closeModalDirect()">×</button>
+      </div>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-left">© 2026 경북대 KDT 12기 · SILI 경진대회</div>
+    <div class="footer-status"><span class="status-dot"></span>로컬 서버 연결됨 · DB 정상</div>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script>
+    const DEFECT_LABELS = {
+      'OUTER_DAMAGE': '외관 손상', 'SEALING': '실링 불량',
+      'HEMMING': '헤밍 불량',     'HOLE_DEFORM': '홀 변형',
+    };
+    const DEFECT_TYPE_CLASS = {
+      'OUTER_DAMAGE': 'type-OUTER_DAMAGE', 'SEALING': 'type-SEALING',
+      'HEMMING': 'type-HEMMING',           'HOLE_DEFORM': 'type-HOLE_DEFORM',
+    };
+
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    if (!user) { location.href = '/'; }
+    else {
+      document.getElementById('userAvatar').textContent = user.name.charAt(0);
+      document.getElementById('userName').textContent = user.name + ' 담당자';
+    }
+    function doLogout() { sessionStorage.removeItem('user'); location.href = '/'; }
+
+    let allCases = [];
+
+    async function loadCases() {
+      const data = await apiFetch('/api/reports/?status=approved&limit=100');
+      if (data && data.items) {
+        allCases = data.items.map(item => ({
+          id:           item.report_id,
+          num:          item.document_no || `#${String(item.report_id).padStart(4,'0')}`,
+          date:         (item.received_date || '').slice(0, 10),
+          supplier:     item.customer_name || '-',
+          defect_type:  item.defect_type || '',
+          product_name: item.product_name || '',
+          defect_location: item.defect_location || '',
+          root_cause:   item.root_cause_analysis || '',
+          action:       item.corrective_action   || '',
+          prevention:   item.preventive_action   || '',
+          handler:      item.handler || '-',
+          image_path:   item.images?.[0]?.image_path || null,
+          delivery_date: item.delivery_date || '',
+          delivery_quantity: item.delivery_quantity || '',
+          defect_quantity:   item.defect_quantity   || '',
+        }));
+      }
+      document.getElementById('statTotal').textContent = allCases.length;
+      filterCases();
+      updateYearSelect('monthly');
+      renderStats('monthly');
+    }
+
+    let periodChartInst = null, defectChartInst = null, currentPeriod = 'monthly';
+
+    function switchCasesTab(name, btn) {
+      document.getElementById('tab-cases').style.display = name === 'cases' ? 'block' : 'none';
+      document.getElementById('tab-stats').style.display = name === 'stats' ? 'block' : 'none';
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      if (name === 'stats') {
+        currentPeriod = 'monthly';
+        document.querySelectorAll('#tab-stats .defect-filter-tab').forEach((t,i) => t.classList.toggle('active', i===0));
+        updateYearSelect('monthly');
+        renderStats('monthly');
+      }
+    }
+
+    function switchPeriod(period, btn) {
+      document.querySelectorAll('#tab-stats .defect-filter-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      currentPeriod = period;
+      updateYearSelect(period);
+      renderStats(period);
+    }
+
+    function rerenderStats() { renderStats(currentPeriod); }
+
+    function updateYearSelect(period) {
+      const sel = document.getElementById('yearSelect');
+      if (period === 'yearly') { sel.style.display = 'none'; return; }
+      sel.style.display = 'block';
+      const years = [...new Set(allCases.map(c => c.date.slice(0,4)))].sort().reverse();
+      const cur = sel.value;
+      sel.innerHTML = years.map(y => `<option value="${y}">${y}년</option>`).join('');
+      if (years.includes(cur)) sel.value = cur;
+    }
+
+    function renderStats(period) {
+      const typeCounts = {};
+      allCases.forEach(c => {
+        const label = DEFECT_LABELS[c.defect_type] || c.defect_type;
+        typeCounts[label] = (typeCounts[label] || 0) + 1;
+      });
+      const sorted = Object.entries(typeCounts).sort((a,b) => b[1]-a[1]);
+      const rankBg = ['#0d6b6c','#4a9fa0','#8cbcbc'];
+      document.getElementById('topDefects').innerHTML = sorted.slice(0,3).map((t,i) => `
+        <div style="background:#fff;border-radius:12px;border:1px solid #e0e0e0;padding:16px;display:flex;align-items:center;gap:12px;">
+          <div style="width:30px;height:30px;border-radius:50%;background:${rankBg[i]};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;">${i+1}</div>
+          <div><div style="font-size:14px;font-weight:500;color:#2c2c2c;">${t[0]}</div><div style="font-size:13px;color:#888;">${t[1]}건</div></div>
+        </div>`).join('');
+
+      const selectedYear = document.getElementById('yearSelect').value;
+      let pdLabels, pdData, pdTitle;
+      if (period === 'monthly') {
+        pdTitle = (selectedYear ? selectedYear+'년 ' : '') + '월별 클레임 접수 현황';
+        const counts = {};
+        for (let m=1; m<=12; m++) counts[String(m).padStart(2,'0')] = 0;
+        allCases.filter(c => !selectedYear || c.date.slice(0,4) === selectedYear)
+                .forEach(c => { const k=c.date.slice(5,7); counts[k]=(counts[k]||0)+1; });
+        pdLabels = Object.keys(counts).sort().map(k => parseInt(k)+'월');
+        pdData   = Object.keys(counts).sort().map(k => counts[k]);
+      } else if (period === 'quarterly') {
+        pdTitle = (selectedYear ? selectedYear+'년 ' : '') + '분기별 현황';
+        const counts = {'Q1':0,'Q2':0,'Q3':0,'Q4':0};
+        allCases.filter(c => !selectedYear || c.date.slice(0,4) === selectedYear)
+                .forEach(c => { const q='Q'+Math.ceil(parseInt(c.date.slice(5,7))/3); counts[q]=(counts[q]||0)+1; });
+        pdLabels = Object.keys(counts); pdData = Object.values(counts);
+      } else {
+        pdTitle = '연별 클레임 접수 현황';
+        const counts = {};
+        allCases.forEach(c => { const k=c.date.slice(0,4); counts[k]=(counts[k]||0)+1; });
+        const keys = Object.keys(counts).sort();
+        pdLabels = keys.map(k => k+'년'); pdData = keys.map(k => counts[k]);
+      }
+      document.getElementById('periodChartTitle').textContent = pdTitle;
+
+      if (periodChartInst) periodChartInst.destroy();
+      periodChartInst = new Chart(document.getElementById('periodChart'), {
+        type: 'bar',
+        data: { labels: pdLabels, datasets: [{ label:'클레임 수', data: pdData, backgroundColor:'#0d6b6c', borderRadius:6 }] },
+        options: { responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } } } }
+      });
+
+      if (defectChartInst) defectChartInst.destroy();
+      defectChartInst = new Chart(document.getElementById('defectChart'), {
+        type: 'doughnut',
+        data: {
+          labels: sorted.map(t=>t[0]),
+          datasets: [{ data: sorted.map(t=>t[1]), backgroundColor:['#0d6b6c','#4a9fa0','#f59e42','#6fa8f5'], borderWidth:2, borderColor:'#fff' }]
+        },
+        options: { responsive:true, cutout:'60%', plugins:{ legend:{ position:'bottom', labels:{ padding:16, font:{ size:13 } } } } }
+      });
+    }
+
+    function setDefectTab(code, btn) {
+      document.querySelectorAll('#tab-cases .defect-filter-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('filterDefect').value = code;
+      filterCases();
+    }
+
+    function filterCases() {
+      const keyword = document.getElementById('searchInput').value.toLowerCase();
+      const defect  = document.getElementById('filterDefect').value;
+      const filtered = allCases.filter(c => {
+        const matchDefect  = !defect || c.defect_type === defect;
+        const matchKeyword = !keyword || [
+          c.supplier, c.product_name, c.root_cause, c.action, c.prevention,
+          DEFECT_LABELS[c.defect_type] || '', c.defect_location
+        ].some(v => v.toLowerCase().includes(keyword));
+        return matchDefect && matchKeyword;
+      });
+      document.getElementById('statFiltered').textContent = filtered.length;
+      renderGrid(filtered);
+    }
+
+    function renderGrid(cases) {
+      const grid = document.getElementById('casesGrid');
+      if (!cases.length) { grid.innerHTML = '<div class="cases-empty">검색 결과가 없습니다.</div>'; return; }
+      grid.innerHTML = cases.map(c => `
+        <div class="case-card" onclick="openModal(${c.id})">
+          <div class="case-card-header">
+            <span class="case-card-num">${c.num}</span>
+            <span class="case-card-date">${c.date}</span>
+          </div>
+          <div class="case-card-company">${c.supplier}</div>
+          <div class="case-card-type ${DEFECT_TYPE_CLASS[c.defect_type] || 'type-default'}">${DEFECT_LABELS[c.defect_type] || c.defect_type}</div>
+          <div class="case-card-preview">${c.root_cause ? `<b>원인:</b> ${c.root_cause}` : '<span style="color:#ccc;">원인 분석 없음</span>'}</div>
+          <div class="case-card-footer">
+            <span class="case-card-product">${c.product_name || '품명 미입력'}</span>
+            <span class="case-card-arrow">자세히 →</span>
+          </div>
+        </div>`).join('');
+    }
+
+    function openModal(id) {
+      const c = allCases.find(x => x.id === id);
+      if (!c) return;
+      document.getElementById('modalTitle').textContent = c.supplier;
+      document.getElementById('modalSub').textContent = `${c.date} · 담당자: ${c.handler}`;
+      const typeClass = DEFECT_TYPE_CLASS[c.defect_type] || 'type-default';
+      const typeLabel = DEFECT_LABELS[c.defect_type] || c.defect_type;
+      document.getElementById('modalBody').innerHTML = `
+        <div class="modal-type-badge ${typeClass}">${typeLabel}</div>
+        <div class="modal-section">
+          <div class="modal-section-title">기본 정보</div>
+          <div class="modal-info-grid">
+            <div><div class="info-label">납품처</div><div class="info-value">${c.supplier}</div></div>
+            <div><div class="info-label">담당자</div><div class="info-value">${c.handler}</div></div>
+            ${c.product_name ? `<div><div class="info-label">품명</div><div class="info-value">${c.product_name}</div></div>` : ''}
+            ${c.defect_location ? `<div><div class="info-label">불량 위치</div><div class="info-value">${c.defect_location}</div></div>` : ''}
+            ${c.delivery_date ? `<div><div class="info-label">납품일</div><div class="info-value">${c.delivery_date}</div></div>` : ''}
+            ${c.delivery_quantity ? `<div><div class="info-label">납품수량</div><div class="info-value">${c.delivery_quantity} EA</div></div>` : ''}
+            ${c.defect_quantity ? `<div><div class="info-label">불량수량</div><div class="info-value">${c.defect_quantity} EA</div></div>` : ''}
+          </div>
+          ${c.image_path ? `<img class="img-preview" src="${c.image_path}" alt="불량 사진" />` : `<div class="img-placeholder">불량 사진 없음</div>`}
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">원인 및 조치</div>
+          ${c.root_cause ? `<div class="modal-text-label">원인 분석</div><div class="modal-text-block">${c.root_cause}</div>` : ''}
+          ${c.action ? `<div class="modal-text-label">시정 조치</div><div class="modal-text-block">${c.action}</div>` : ''}
+          ${c.prevention ? `<div class="modal-text-label">예방 대책</div><div class="modal-text-block">${c.prevention}</div>` : ''}
+          ${!c.root_cause && !c.action && !c.prevention ? '<div style="color:#bbb;font-size:14px;padding:16px 0;">대응 내용이 없습니다.</div>' : ''}
+        </div>`;
+      document.getElementById('modalOverlay').classList.add('open');
+    }
+
+    function closeModal(e) { if (e.target === document.getElementById('modalOverlay')) closeModalDirect(); }
+    function closeModalDirect() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+    loadCases();
+  </script>
+</body>
+</html>

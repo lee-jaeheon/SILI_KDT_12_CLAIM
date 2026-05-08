@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>클레임 접수 1단계 · 납품 불량 클레임 대응 시스템</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body { background: #f4f5f7; }
+    .page-wrap { max-width: 860px; margin: 0 auto; padding: 32px 24px 48px; }
+
+    .step-bar { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 32px; background: #fff; border-radius: 14px; border: 1px solid #e0e0e0; padding: 18px 24px; }
+    .step-item { display: flex; align-items: center; gap: 10px; }
+    .step-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+    .step-num.active  { background: #0d6b6c; color: #fff; }
+    .step-num.done    { background: #66bb8a; color: #fff; }
+    .step-num.pending { background: #e0e0e0; color: #aaa; }
+    .step-label { font-size: 14px; font-weight: 500; }
+    .step-label.active  { color: #0d6b6c; }
+    .step-label.pending { color: #bbb; }
+    .step-arrow { margin: 0 16px; color: #ddd; font-size: 16px; }
+
+    .doc-card { background: #fff; border-radius: 14px; border: 1px solid #e0e0e0; padding: 18px 22px; margin-bottom: 16px; }
+    .doc-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .doc-card-title { font-size: 15px; font-weight: 500; color: #2c2c2c; }
+    .doc-card-sub { font-size: 13px; color: #888; margin-left: auto; }
+    .doc-upload-row { display: flex; align-items: center; gap: 12px; }
+    .doc-upload-btn { display: flex; align-items: center; gap: 8px; padding: 9px 18px; background: #f0fafa; border: 1.5px dashed #0d6b6c; border-radius: 8px; font-size: 14px; color: #0d6b6c; cursor: pointer; white-space: nowrap; font-family: inherit; transition: background .15s; }
+    .doc-upload-btn:hover { background: #e0f2f2; }
+    .doc-upload-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .doc-status { font-size: 13px; color: #888; flex: 1; }
+    .doc-status.loading { color: #0d6b6c; }
+    .doc-status.success { color: #1e6e3e; }
+    .doc-status.error   { color: #c0392b; }
+    .auto-fill-banner { display: none; background: #e8f5f5; border: 1px solid #0d6b6c; border-radius: 10px; padding: 10px 16px; margin-bottom: 14px; font-size: 14px; color: #0a4e4f; align-items: center; gap: 8px; }
+    .auto-fill-banner.show { display: flex; }
+
+    .form-card { background: #fff; border-radius: 14px; border: 1px solid #e0e0e0; padding: 24px; margin-bottom: 16px; }
+    .form-card-title { font-size: 15px; font-weight: 500; color: #2c2c2c; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 13px; color: #666; }
+    .field input, .field select {
+      padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 8px;
+      font-size: 14px; color: #2c2c2c; background: #fff; outline: none;
+      transition: border-color .15s; font-family: inherit;
+    }
+    .field input:focus, .field select:focus { border-color: #0d6b6c; }
+    .field input.auto-filled { background: #f0fafa; border-color: #0d6b6c; }
+
+    .ai-photo-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .upload-area { border: 1.5px dashed #ccc; border-radius: 10px; padding: 24px 16px; text-align: center; cursor: pointer; transition: all .15s; background: #fafafa; min-height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .upload-area:hover, .upload-area.has-file { border-color: #0d6b6c; background: #f0fafa; }
+    .upload-icon { width: 32px; height: 32px; margin-bottom: 8px; opacity: .35; }
+    .upload-text { font-size: 13px; color: #999; }
+    .upload-hint { font-size: 12px; color: #bbb; margin-top: 4px; }
+    .upload-preview { display: none; width: 100%; }
+    .upload-preview img { max-width: 100%; max-height: 140px; border-radius: 8px; object-fit: cover; }
+    .upload-filename { font-size: 12px; color: #0d6b6c; margin-top: 6px; font-weight: 500; }
+
+    .ai-result-box { background: #e8f5f5; border: 1px solid #0d6b6c; border-radius: 10px; padding: 16px; height: 100%; display: none; flex-direction: column; justify-content: center; }
+    .ai-result-box.show { display: flex; }
+    .ai-result-label { font-size: 12px; color: #0a4e4f; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .ai-badge { background: #0d6b6c; color: #fff; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+    .ai-result-value { font-size: 20px; font-weight: 500; color: #2c2c2c; margin-bottom: 4px; }
+    .ai-result-conf { font-size: 12px; color: #888; }
+    .ai-result-pending { color: #aaa; font-size: 14px; text-align: center; padding: 20px; }
+
+    .defect-radio-group { display: flex; flex-wrap: wrap; gap: 12px; padding: 4px 0; }
+    .defect-radio-item { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; color: #2c2c2c; }
+    .defect-radio-item input[type=radio] { display: none; }
+    .defect-radio-box { width: 18px; height: 18px; border: 1.5px solid #aaa; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0; }
+    .defect-radio-item input:checked ~ .defect-radio-box { border-color: #0d6b6c; background: #0d6b6c; }
+    .defect-radio-item input:checked ~ .defect-radio-box::after { content: '✓'; color: #fff; font-size: 11px; font-weight: 700; }
+    .defect-radio-item input:checked ~ .defect-radio-label { font-weight: 600; color: #0d6b6c; }
+
+    .btn-row { display: flex; gap: 12px; margin-top: 8px; }
+    .btn-draft { padding: 13px 24px; background: #fff; color: #555; border: 1.5px solid #e0e0e0; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all .15s; }
+    .btn-draft:hover { background: #f5f5f5; border-color: #aaa; }
+    .btn-next  { flex: 1; padding: 13px; background: #0d6b6c; color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; transition: background .15s; }
+    .btn-next:hover { background: #0a5a5b; }
+    .btn-next:disabled, .btn-draft:disabled { opacity: .5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="logo-area">
+      <img src="logo.png" class="logo-icon" alt="로고" />
+      <div>
+        <div class="logo-title">납품 불량 클레임 대응 시스템</div>
+        <div class="logo-sub">AJIN INDUSTRIAL · QA 관리 시스템</div>
+      </div>
+    </div>
+    <div class="user-info">
+      <div class="user-avatar" id="userAvatar"></div>
+      <div>
+        <div class="user-name" id="userName"></div>
+        <div class="user-team">품질보증팀</div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="page-wrap">
+    <div class="step-bar">
+      <div class="step-item">
+        <div class="step-num active">1</div>
+        <span class="step-label active">기본 정보 · 사진</span>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step-item">
+        <div class="step-num pending">2</div>
+        <span class="step-label pending">보고서 작성</span>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step-item">
+        <div class="step-num pending">3</div>
+        <span class="step-label pending">확인 · 제출</span>
+      </div>
+    </div>
+
+    <!-- 문서 자동 입력 -->
+    <div class="doc-card">
+      <div class="doc-card-header">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0d6b6c" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <div class="doc-card-title">클레임 문서 자동 입력</div>
+        <div class="doc-card-sub">PDF · DOCX · EML 업로드 시 AI가 자동으로 채워줍니다</div>
+      </div>
+      <div class="doc-upload-row">
+        <button class="doc-upload-btn" id="docUploadBtn" onclick="document.getElementById('docFileInput').click()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          </svg>
+          문서 업로드
+        </button>
+        <div class="doc-status" id="docStatus">클레임 문서를 업로드하면 아래 양식이 자동으로 채워집니다</div>
+        <input type="file" id="docFileInput" accept=".pdf,.docx,.eml" style="display:none" onchange="handleDocUpload(this)" />
+      </div>
+    </div>
+    <div class="auto-fill-banner" id="autoFillBanner">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+      <span>AI가 문서 내용을 자동으로 입력했습니다. 내용을 확인 후 수정하세요.</span>
+    </div>
+
+    <!-- 기본 정보 -->
+    <div class="form-card">
+      <div class="form-card-title">기본 정보</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>납품처 *</label>
+          <input type="text" id="supplier" placeholder="예: 현대부품" />
+        </div>
+        <div class="field">
+          <label>담당자 *</label>
+          <input type="text" id="handler" placeholder="예: 홍길동" />
+        </div>
+        <div class="field">
+          <label>품명</label>
+          <input type="text" id="product_name" placeholder="예: 자동차 프레임" />
+        </div>
+        <div class="field">
+          <label>품번</label>
+          <input type="text" id="product_no" placeholder="예: FRM-001" />
+        </div>
+        <div class="field">
+          <label>납품일</label>
+          <input type="date" id="delivery_date" />
+        </div>
+        <div class="field">
+          <label>불량 위치</label>
+          <input type="text" id="defect_location" placeholder="예: 프레임 상단 접합부" />
+        </div>
+        <div class="field">
+          <label>납품 수량</label>
+          <input type="number" id="delivery_quantity" placeholder="예: 500" min="0" />
+        </div>
+        <div class="field">
+          <label>불량 수량</label>
+          <input type="number" id="defect_quantity" placeholder="예: 3" min="0" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 사진 업로드 + AI 분류 -->
+    <div class="form-card">
+      <div class="form-card-title">불량 사진 업로드 · AI 분류</div>
+      <div class="ai-photo-row">
+        <div>
+          <div class="upload-area" id="uploadArea" onclick="document.getElementById('imageInput').click()">
+            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <div class="upload-text">사진을 클릭하여 업로드</div>
+            <div class="upload-hint">JPG, PNG · 최대 20MB</div>
+            <div class="upload-preview" id="uploadPreview">
+              <img id="previewImg" src="" alt="미리보기" />
+              <div class="upload-filename" id="uploadFilename"></div>
+            </div>
+          </div>
+          <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImage(this)" />
+        </div>
+        <div>
+          <div class="ai-result-box" id="aiBox">
+            <div class="ai-result-label"><span class="ai-badge">✦ AI 분류</span></div>
+            <div class="ai-result-value" id="aiResult">분석 중...</div>
+            <div class="ai-result-conf" id="aiConf"></div>
+          </div>
+          <div id="aiPending" class="upload-area" style="cursor:default;">
+            <div class="ai-result-pending">사진을 업로드하면<br/>AI가 불량 유형을 분류합니다</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;">
+        <div style="font-size:13px;color:#666;margin-bottom:10px;">불량 유형 확정 *</div>
+        <div class="defect-radio-group" id="defectRadioGroup">
+          <label class="defect-radio-item">
+            <input type="radio" name="defectType" value="OUTER_DAMAGE" />
+            <span class="defect-radio-box"></span>
+            <span class="defect-radio-label">외관 손상</span>
+          </label>
+          <label class="defect-radio-item">
+            <input type="radio" name="defectType" value="SEALING" />
+            <span class="defect-radio-box"></span>
+            <span class="defect-radio-label">실링 불량</span>
+          </label>
+          <label class="defect-radio-item">
+            <input type="radio" name="defectType" value="HEMMING" />
+            <span class="defect-radio-box"></span>
+            <span class="defect-radio-label">헤밍 불량</span>
+          </label>
+          <label class="defect-radio-item">
+            <input type="radio" name="defectType" value="HOLE_DEFORM" />
+            <span class="defect-radio-box"></span>
+            <span class="defect-radio-label">홀 변형</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-draft" onclick="location.href='/hub'">← 취소</button>
+      <button class="btn-draft" id="draftBtn" onclick="saveDraft()">임시 저장</button>
+      <button class="btn-next"  id="nextBtn"  onclick="goNext()">다음 단계 →</button>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-left">© 2026 경북대 KDT 12기 · SILI 경진대회</div>
+    <div class="footer-status"><span class="status-dot"></span>로컬 서버 연결됨 · DB 정상</div>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script>
+    const DEFECT_LABELS = { 'OUTER_DAMAGE':'외관 손상', 'SEALING':'실링 불량', 'HEMMING':'헤밍 불량', 'HOLE_DEFORM':'홀 변형' };
+
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    if (!user) { location.href = '/'; }
+    else {
+      document.getElementById('userAvatar').textContent = user.name.charAt(0);
+      document.getElementById('userName').textContent = user.name + ' 담당자';
+      document.getElementById('handler').value = user.name;
+    }
+    function doLogout() { sessionStorage.removeItem('user'); location.href = '/'; }
+
+    // URL ?id=X — list에서 "이어서 작업" 진입 시 sessionStorage에 저장 후 복원
+    window.addEventListener('DOMContentLoaded', async () => {
+      const urlId = new URLSearchParams(location.search).get('id');
+      if (urlId) sessionStorage.setItem('claim_report_id', urlId);
+
+      const rid = sessionStorage.getItem('claim_report_id');
+      if (rid) {
+        const data = await apiFetch('/api/reports/' + rid);
+        if (data) prefillFromReport(data);
+      }
+    });
+
+    function prefillFromReport(r) {
+      setVal('supplier',          r.customer_name);
+      setVal('handler',           r.handler);
+      setVal('product_name',      r.product_name);
+      setVal('product_no',        r.product_no);
+      setVal('delivery_date',     r.delivery_date);
+      setVal('defect_location',   r.defect_location);
+      setVal('delivery_quantity', r.delivery_quantity);
+      setVal('defect_quantity',   r.defect_quantity);
+      if (r.defect_type) setDefectType(r.defect_type);
+      if (r.images?.[0]?.image_path) {
+        document.getElementById('previewImg').src = r.images[0].image_path;
+        document.getElementById('uploadFilename').textContent = '업로드된 사진';
+        document.getElementById('uploadPreview').style.display = 'block';
+        document.getElementById('uploadArea').classList.add('has-file');
+      }
+      if (r.ai_defect_type) {
+        document.getElementById('aiPending').style.display = 'none';
+        document.getElementById('aiBox').classList.add('show');
+        document.getElementById('aiResult').textContent = DEFECT_LABELS[r.ai_defect_type] || r.ai_defect_type;
+        document.getElementById('aiConf').textContent = r.ai_confidence ? '신뢰도 ' + (r.ai_confidence * 100).toFixed(1) + '%' : '';
+      }
+    }
+
+    function setVal(id, val) {
+      const el = document.getElementById(id);
+      if (el && val !== null && val !== undefined && val !== '') el.value = val;
+    }
+
+    function getDefectType() {
+      const r = document.querySelector('input[name="defectType"]:checked');
+      return r ? r.value : '';
+    }
+
+    function setDefectType(code) {
+      const r = document.querySelector(`input[name="defectType"][value="${code}"]`);
+      if (r) r.checked = true;
+    }
+
+    async function handleDocUpload(input) {
+      const file = input.files[0]; if (!file) return;
+      const statusEl = document.getElementById('docStatus');
+      const btnEl    = document.getElementById('docUploadBtn');
+      statusEl.className = 'doc-status loading';
+      statusEl.textContent = '📄 ' + file.name + ' 분석 중...';
+      btnEl.disabled = true;
+
+      const fd = new FormData(); fd.append('file', file);
+      const extracted = await apiFetch('/api/parse-file', { method:'POST', body:fd });
+      if (!extracted?.extracted_text) {
+        statusEl.className = 'doc-status error';
+        statusEl.textContent = '텍스트 추출 실패. 직접 입력해주세요.';
+        btnEl.disabled = false; return;
+      }
+      const params = new URLSearchParams({ text: extracted.extracted_text });
+      const parsed = await apiFetch('/api/parse-claim', {
+        method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:params
+      });
+      if (parsed) {
+        autoFill('supplier',           parsed.customer_name);
+        autoFill('product_name',       parsed.product_name);
+        autoFill('product_no',         parsed.product_no);
+        autoFill('handler',            parsed.handler);
+        if (parsed.delivery_quantity) autoFill('delivery_quantity', String(parseInt(parsed.delivery_quantity)));
+        if (parsed.defect_quantity)   autoFill('defect_quantity',   String(parseInt(parsed.defect_quantity)));
+        const validCodes = ['OUTER_DAMAGE','SEALING','HEMMING','HOLE_DEFORM'];
+        if (parsed.defect_type && validCodes.includes(parsed.defect_type)) setDefectType(parsed.defect_type);
+        document.getElementById('autoFillBanner').classList.add('show');
+      }
+      statusEl.className = 'doc-status success';
+      statusEl.textContent = '✓ ' + file.name + ' 자동 입력 완료';
+      btnEl.disabled = false;
+    }
+
+    function autoFill(id, value) {
+      const el = document.getElementById(id);
+      if (!el || !value) return;
+      el.value = value;
+      el.classList.add('auto-filled');
+      el.addEventListener('input', () => el.classList.remove('auto-filled'), { once:true });
+    }
+
+    async function handleImage(input) {
+      const file = input.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('previewImg').src = e.target.result;
+        document.getElementById('uploadFilename').textContent = file.name;
+        document.getElementById('uploadPreview').style.display = 'block';
+        document.getElementById('uploadArea').classList.add('has-file');
+      };
+      reader.readAsDataURL(file);
+
+      document.getElementById('aiPending').style.display = 'none';
+      document.getElementById('aiBox').classList.add('show');
+      document.getElementById('aiResult').textContent = '분석 중...';
+      document.getElementById('aiConf').textContent = '';
+
+      const fd = new FormData(); fd.append('image', file);
+      const data = await apiFetch('/api/classify', { method:'POST', body:fd });
+      if (data) {
+        document.getElementById('aiResult').textContent = data.label;
+        document.getElementById('aiConf').textContent = '신뢰도 ' + data.confidence_pct + (data.is_dummy ? ' (시연용)' : '');
+        setDefectType(data.defect_type);
+      } else {
+        document.getElementById('aiResult').textContent = '분류 실패 — 직접 선택하세요';
+      }
+    }
+
+    async function buildFormData() {
+      const fd = new FormData();
+      const supplier = document.getElementById('supplier').value.trim();
+      if (!supplier) { alert('납품처는 필수 항목입니다.'); return null; }
+      fd.append('customer_name',   supplier);
+      fd.append('handler',         document.getElementById('handler').value.trim());
+      fd.append('product_name',    document.getElementById('product_name').value.trim());
+      fd.append('product_no',      document.getElementById('product_no').value.trim());
+      fd.append('defect_location', document.getElementById('defect_location').value.trim());
+      const dt = document.getElementById('delivery_date').value;
+      if (dt) fd.append('delivery_date', dt);
+      const dq = document.getElementById('delivery_quantity').value;
+      const fq = document.getElementById('defect_quantity').value;
+      if (dq) fd.append('delivery_quantity', parseInt(dq));
+      if (fq) fd.append('defect_quantity',   parseInt(fq));
+      const defectType = getDefectType();
+      if (defectType) fd.append('defect_type', defectType);
+      const imageFile = document.getElementById('imageInput').files[0];
+      if (imageFile) fd.append('image', imageFile);
+      const aiLabel = document.getElementById('aiResult').textContent;
+      if (aiLabel && !['분석 중...','분류 실패 — 직접 선택하세요'].includes(aiLabel) && defectType)
+        fd.append('ai_defect_type', defectType);
+      return fd;
+    }
+
+    async function saveOrUpdate(fd) {
+      const rid = sessionStorage.getItem('claim_report_id');
+      if (rid) {
+        const body = {
+          customer_name:     document.getElementById('supplier').value.trim(),
+          handler:           document.getElementById('handler').value.trim(),
+          product_name:      document.getElementById('product_name').value.trim(),
+          product_no:        document.getElementById('product_no').value.trim(),
+          defect_location:   document.getElementById('defect_location').value.trim(),
+          delivery_date:     document.getElementById('delivery_date').value || null,
+          delivery_quantity: parseInt(document.getElementById('delivery_quantity').value) || null,
+          defect_quantity:   parseInt(document.getElementById('defect_quantity').value)   || null,
+          defect_type:       getDefectType() || null,
+        };
+        await apiFetch('/api/reports/' + rid, {
+          method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+        });
+        return rid;
+      } else {
+        const data = await apiFetch('/api/reports/', { method:'POST', body:fd });
+        return data?.report_id ? String(data.report_id) : null;
+      }
+    }
+
+    async function saveDraft() {
+      const fd = await buildFormData(); if (!fd) return;
+      const btn = document.getElementById('draftBtn');
+      btn.disabled = true; btn.textContent = '저장 중...';
+      const rid = await saveOrUpdate(fd);
+      if (rid) {
+        sessionStorage.removeItem('claim_report_id');
+        alert('임시 저장되었습니다.\n클레임 목록에서 이어서 작성할 수 있습니다.');
+        location.href = '/list';
+      } else {
+        alert('임시 저장에 실패했습니다.');
+        btn.disabled = false; btn.textContent = '임시 저장';
+      }
+    }
+
+    async function goNext() {
+      const defectType = getDefectType();
+      if (!document.getElementById('supplier').value.trim()) { alert('납품처는 필수 항목입니다.'); return; }
+      if (!defectType) { alert('불량 유형을 선택해주세요.'); return; }
+
+      const fd = await buildFormData(); if (!fd) return;
+      const btn = document.getElementById('nextBtn');
+      btn.disabled = true; btn.textContent = '저장 중...';
+
+      const rid = await saveOrUpdate(fd);
+      if (rid) {
+        sessionStorage.setItem('claim_report_id', rid);
+        location.href = '/claim-step2';
+      } else {
+        alert('저장에 실패했습니다.');
+        btn.disabled = false; btn.textContent = '다음 단계 →';
+      }
+    }
+  </script>
+</body>
+</html>

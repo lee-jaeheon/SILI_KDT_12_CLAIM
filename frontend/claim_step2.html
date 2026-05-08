@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>보고서 작성 (2단계) · 납품 불량 클레임 대응 시스템</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    :root {
+      --accent: #0d6b6c;
+      --accent-bg: #e8f5f5;
+      --border: #c8c8c8;
+      --text: #1a1d23;
+      --sub: #6b7280;
+      --radius: 10px;
+    }
+    html, body { height:100%; margin:0; background:#f0f2f5; display:flex; flex-direction:column; }
+    .topbar { flex-shrink:0; }
+    .footer  { flex-shrink:0; }
+
+    .step-header {
+      flex-shrink:0; background:#fff; border-bottom:1px solid #e8e8e8;
+      padding:10px 24px; display:flex; align-items:center;
+    }
+    .step-wrap { display:flex; align-items:center; }
+    .step { display:flex; align-items:center; gap:8px; font-size:13px; }
+    .step-num { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+    .step.done   .step-num   { background:#66bb8a; color:#fff; }
+    .step.done   .step-label { color:#888; }
+    .step.active .step-num   { background:var(--accent); color:#fff; }
+    .step.active .step-label { color:var(--accent); font-weight:600; }
+    .step.wait   .step-num   { background:#e0e0e0; color:#aaa; }
+    .step.wait   .step-label { color:#aaa; }
+    .step-divider { width:48px; height:1px; background:#e0e0e0; margin:0 12px; }
+
+    .split-wrap  { flex:1; display:flex; overflow:hidden; min-height:0; }
+    .panel-left  { flex:3; overflow-y:auto; padding:20px 20px 40px 24px; background:#f7f8fa; min-width:0; }
+    .panel-right { flex:2; overflow-y:auto; padding:20px 24px 40px 20px; background:#f0f2f5; border-left:1px solid #e0e0e0; min-width:0; }
+    .panel-title { font-size:14px; font-weight:600; color:#2c2c2c; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; }
+    .panel-title small { font-weight:400; font-size:11px; color:#888; }
+
+    /* 문서 업로드 카드 */
+    .doc-card { background:#fff; border-radius:12px; border:1px solid #e0e0e0; padding:14px 20px; margin-bottom:14px; }
+    .doc-card-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .doc-card-title { font-size:14px; font-weight:500; color:#2c2c2c; }
+    .doc-card-sub   { font-size:12px; color:#888; margin-left:auto; }
+    .doc-upload-row { display:flex; align-items:center; gap:12px; }
+    .doc-upload-btn { display:flex; align-items:center; gap:8px; padding:8px 16px; background:#f0fafa; border:1.5px dashed #0d6b6c; border-radius:8px; font-size:13px; color:#0d6b6c; cursor:pointer; white-space:nowrap; font-family:inherit; transition:background .15s; }
+    .doc-upload-btn:hover { background:#e0f2f2; }
+    .doc-upload-btn:disabled { opacity:.5; cursor:not-allowed; }
+    .doc-status { font-size:13px; color:#888; flex:1; }
+    .doc-status.loading { color:#0d6b6c; }
+    .doc-status.success { color:#1e6e3e; }
+    .doc-status.error   { color:#c0392b; }
+    .auto-fill-banner { display:none; background:#e8f5f5; border:1px solid #0d6b6c; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:13px; color:#0a4e4f; align-items:center; gap:8px; }
+    .auto-fill-banner.show { display:flex; }
+
+    /* NCR 테이블 */
+    .ncr-wrap { background:#fff; border-radius:12px; border:1px solid #e0e0e0; overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.05); }
+    .ncr-table { width:100%; border-collapse:collapse; font-size:13.5px; border:2px solid #222; }
+    .ncr-table td, .ncr-table th { border:1px solid #d0d0d0; padding:0; vertical-align:middle; }
+    .ncr-header-row td { border-bottom:2px solid #333; }
+    .ncr-logo-cell { width:52px; padding:10px 8px; text-align:center; background:#f8f8f8; }
+    .ncr-logo-cell img { width:34px; height:34px; }
+    .ncr-main-title { text-align:center; font-size:18px; font-weight:700; color:#2c2c2c; letter-spacing:.5px; padding:13px 0; }
+    .ncr-docno-label { width:68px; text-align:center; font-size:11px; color:#666; background:#f8f8f8; padding:6px 4px; border-left:2px solid #333; }
+    .ncr-docno-val { width:108px; padding:4px 8px; }
+    .ncr-docno-val input { width:100%; border:none; outline:none; font-size:13px; color:#aaa; font-family:inherit; }
+    .ncr-lbl { background:#f0f0f0; text-align:center; font-size:12px; font-weight:500; color:#444; padding:8px 6px; white-space:nowrap; }
+    .ncr-val { padding:4px 8px; background:#fff; }
+    .ncr-val input, .ncr-val select { width:100%; border:none; outline:none; font-size:13.5px; color:#2c2c2c; font-family:inherit; background:transparent; padding:4px 2px; }
+    .ncr-val input.auto-filled { background:#f0fafa; border-radius:4px; }
+    .ncr-val input[type=date] { font-size:13px; }
+    .ncr-val textarea { width:100%; border:none; outline:none; font-size:13.5px; color:#2c2c2c; font-family:inherit; background:transparent; resize:vertical; min-height:80px; padding:6px 2px; line-height:1.6; box-sizing:border-box; }
+    .ncr-val.tall textarea { min-height:90px; }
+
+    .defect-radio-group { display:flex; align-items:center; gap:24px; padding:9px 12px; flex-wrap:wrap; }
+    .defect-radio-item { display:flex; align-items:center; gap:7px; cursor:pointer; font-size:13.5px; color:#2c2c2c; }
+    .defect-radio-item input[type=radio] { display:none; }
+    .defect-radio-box { width:16px; height:16px; border:1.5px solid #aaa; border-radius:3px; display:flex; align-items:center; justify-content:center; transition:all .15s; flex-shrink:0; }
+    .defect-radio-item input:checked ~ .defect-radio-box { border-color:#0d6b6c; background:#0d6b6c; }
+    .defect-radio-item input:checked ~ .defect-radio-box::after { content:'✓'; color:#fff; font-size:10px; font-weight:700; }
+    .defect-radio-item input:checked ~ .defect-radio-label { font-weight:600; color:#0d6b6c; }
+
+    .ai-inline { display:none; padding:9px 12px; background:#e8f5f5; border-bottom:1px solid #d0e8e8; }
+    .ai-inline-inner { display:flex; align-items:center; gap:12px; }
+    .ai-badge { background:#0d6b6c; color:#fff; border-radius:6px; padding:3px 9px; font-size:11px; font-weight:600; }
+    .ai-label-text { font-size:13.5px; font-weight:500; color:#2c2c2c; }
+    .ai-conf { font-size:12px; color:#888; }
+
+    .photo-cell { padding:10px 12px; }
+    .upload-area { border:1.5px dashed #ccc; border-radius:8px; padding:18px; text-align:center; cursor:pointer; transition:all .15s; background:#fafafa; }
+    .upload-area:hover, .upload-area.has-file { border-color:#0d6b6c; background:#f0fafa; }
+    .upload-icon { width:26px; height:26px; margin:0 auto 5px; opacity:.3; }
+    .upload-text { font-size:13px; color:#999; }
+    .upload-hint { font-size:12px; color:#bbb; margin-top:2px; }
+    .upload-preview { display:none; margin-top:8px; }
+    .upload-preview img { max-width:100%; max-height:160px; border-radius:6px; object-fit:cover; }
+    .upload-filename { font-size:12px; color:#0d6b6c; margin-top:3px; font-weight:500; }
+
+    /* 하단 버튼 */
+    .action-bar { display:flex; justify-content:space-between; align-items:center; margin-top:14px; }
+    .btn-ghost  { padding:10px 18px; background:#fff; border:1px solid #d0d0d0; border-radius:9px; font-size:13px; cursor:pointer; color:#555; font-family:inherit; }
+    .btn-ghost:hover { background:#f5f5f5; }
+    .btn-save   { padding:10px 20px; background:#fff; border:1.5px solid var(--accent); border-radius:9px; font-size:13px; font-weight:500; cursor:pointer; color:var(--accent); font-family:inherit; }
+    .btn-save:hover { background:var(--accent-bg); }
+    .btn-save:disabled { opacity:.5; cursor:not-allowed; }
+    .btn-submit { padding:10px 26px; background:var(--accent); color:#fff; border:none; border-radius:9px; font-size:13.5px; font-weight:600; cursor:pointer; font-family:inherit; }
+    .btn-submit:hover { background:#0a5a5b; }
+    .btn-submit:disabled { background:#9ec5c5; cursor:not-allowed; }
+
+    /* 유사 사례 패널 */
+    .spinner { width:18px; height:18px; border:2px solid #e0e0e0; border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .loading-state { display:flex; align-items:center; gap:10px; color:#888; font-size:13px; padding:20px 0; }
+    .empty-state { text-align:center; color:#bbb; padding:40px 20px; }
+    .empty-state .es-icon { font-size:32px; margin-bottom:10px; }
+    .empty-state p { font-size:13px; margin:0; }
+    .similar-card { background:#fff; border:1px solid #e0e0e0; border-radius:10px; padding:14px 16px; margin-bottom:10px; font-size:13px; }
+    .sc-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:8px; }
+    .sc-customer { font-weight:600; font-size:14px; }
+    .sc-date { font-size:11px; color:#888; margin-top:2px; }
+    .sc-badges { display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0; }
+    .sc-badge { font-size:11px; padding:2px 8px; border-radius:20px; font-weight:500; white-space:nowrap; }
+    .badge-defect    { background:#e8f5f5; color:#0a4e4f; }
+    .badge-approved  { background:#c8e6c9; color:#1b5e20; }
+    .badge-rejected  { background:#ffcdd2; color:#b71c1c; }
+    .badge-submitted { background:#fff9c4; color:#795548; }
+    .badge-draft     { background:#f0f0f0; color:#757575; }
+    .sc-divider { height:1px; background:#f0f0f0; margin:7px 0; }
+    .sc-field { margin-bottom:6px; }
+    .sc-field-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#aaa; margin-bottom:2px; }
+    .sc-field-value { color:#2c2c2c; background:#fafafa; border-radius:5px; padding:5px 8px; font-size:12px; white-space:pre-wrap; word-break:break-all; border:1px solid #f0f0f0; }
+    .sc-field-value.empty { color:#bbb; font-style:italic; }
+    .sc-use-btn { margin-top:8px; width:100%; padding:6px 14px; font-size:12px; border:1px solid var(--accent); background:#fff; color:var(--accent); border-radius:7px; cursor:pointer; font-family:inherit; }
+    .sc-use-btn:hover { background:var(--accent-bg); }
+
+    .toast { position:fixed; bottom:56px; left:50%; transform:translateX(-50%) translateY(20px); background:#2c2c2c; color:#fff; padding:10px 22px; border-radius:24px; font-size:13px; opacity:0; transition:opacity .25s, transform .25s; pointer-events:none; z-index:999; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="logo-area">
+      <img src="logo.png" class="logo-icon" alt="로고" />
+      <div>
+        <div class="logo-title">납품 불량 클레임 대응 시스템</div>
+        <div class="logo-sub">AJIN INDUSTRIAL · QA 관리 시스템</div>
+      </div>
+    </div>
+    <div class="user-info">
+      <div class="user-avatar" id="userAvatar"></div>
+      <div>
+        <div class="user-name" id="userName"></div>
+        <div class="user-team">품질보증팀</div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="step-header">
+    <div class="step-wrap">
+      <div class="step done">
+        <div class="step-num">✓</div>
+        <div class="step-label">기본 정보 · 사진</div>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step active">
+        <div class="step-num">2</div>
+        <div class="step-label">보고서 작성</div>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step wait">
+        <div class="step-num">3</div>
+        <div class="step-label">확인 · 제출</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="split-wrap">
+
+    <!-- 좌측: NCR 보고서 양식 -->
+    <div class="panel-left">
+
+      <div class="doc-card">
+        <div class="doc-card-header">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0d6b6c" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <div class="doc-card-title">클레임 문서 자동 입력</div>
+          <div class="doc-card-sub">고객사 클레임 문서(PDF·DOCX·EML) 업로드 시 AI가 자동으로 채워줍니다</div>
+        </div>
+        <div class="doc-upload-row">
+          <button class="doc-upload-btn" id="docUploadBtn" onclick="document.getElementById('docFileInput').click()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            </svg>
+            문서 업로드
+          </button>
+          <div class="doc-status" id="docStatus">클레임 문서를 업로드하면 아래 양식이 자동으로 채워집니다</div>
+          <input type="file" id="docFileInput" accept=".pdf,.docx,.eml" style="display:none" onchange="handleDocUpload(this)" />
+        </div>
+      </div>
+
+      <div class="auto-fill-banner" id="autoFillBanner">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>AI가 문서 내용을 자동으로 입력했습니다. 내용을 확인 후 수정하세요.</span>
+      </div>
+
+      <div class="panel-title">
+        📄 부적합 보고서 (NCR)
+        <small>회색 칸 자동입력 · 직접 수정 가능</small>
+      </div>
+
+      <div class="ncr-wrap">
+
+        <div class="ai-inline" id="aiInline">
+          <div class="ai-inline-inner">
+            <span class="ai-badge">✦ AI 분류</span>
+            <span class="ai-label-text" id="aiResult">-</span>
+            <span class="ai-conf" id="aiConf"></span>
+          </div>
+        </div>
+
+        <table class="ncr-table">
+          <tr class="ncr-header-row">
+            <td class="ncr-logo-cell" rowspan="2">
+              <img src="logo.png" alt="로고" />
+            </td>
+            <td colspan="6" class="ncr-main-title">부적합 보고서 (NCR)</td>
+            <td class="ncr-docno-label">문서번호</td>
+            <td class="ncr-docno-val"><input type="text" id="document_no" placeholder="자동생성" readonly /></td>
+          </tr>
+
+          <tr>
+            <td class="ncr-lbl" colspan="2">문서 발행일</td>
+            <td class="ncr-val" colspan="2"><input type="date" id="issue_date" /></td>
+            <td class="ncr-lbl">고객사 *</td>
+            <td class="ncr-val" colspan="3"><input type="text" id="supplier" placeholder="예: 현대부품" /></td>
+          </tr>
+
+          <tr>
+            <td class="ncr-lbl" colspan="2">납품일</td>
+            <td class="ncr-val" colspan="2"><input type="date" id="delivery_date" /></td>
+            <td class="ncr-lbl">납품수량</td>
+            <td class="ncr-val" colspan="2"><input type="number" id="delivery_quantity" placeholder="예: 500" min="0" /></td>
+            <td class="ncr-lbl">불량수량</td>
+            <td class="ncr-val"><input type="number" id="defect_quantity" placeholder="예: 3" min="0" /></td>
+          </tr>
+
+          <tr>
+            <td class="ncr-lbl" colspan="2">품명/품번</td>
+            <td class="ncr-val" colspan="4">
+              <input type="text" id="product_name" placeholder="품명 (예: 자동차 프레임)" style="width:52%;margin-right:4px;" />
+              <span style="color:#ccc;">/</span>
+              <input type="text" id="product_no" placeholder="품번 (예: FRM-001)" style="width:42%;margin-left:4px;" />
+            </td>
+            <td class="ncr-lbl">불량위치</td>
+            <td class="ncr-val" colspan="2"><input type="text" id="defect_location" placeholder="예: 프레임 상단" /></td>
+          </tr>
+
+          <tr>
+            <td class="ncr-lbl" colspan="2" style="height:160px;">사진<br/>첨부</td>
+            <td colspan="7" class="photo-cell">
+              <div class="upload-area" id="uploadArea" onclick="document.getElementById('imageInput').click()">
+                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <div class="upload-text">불량 사진을 클릭하여 업로드</div>
+                <div class="upload-hint">JPG, PNG · 최대 20MB · 업로드 시 AI 자동 분류</div>
+                <div class="upload-preview" id="uploadPreview">
+                  <img id="previewImg" src="" alt="미리보기" />
+                  <div class="upload-filename" id="uploadFilename"></div>
+                </div>
+              </div>
+              <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImage(this)" />
+            </td>
+          </tr>
+
+          <tr>
+            <td class="ncr-lbl" colspan="2">불량유형 *</td>
+            <td colspan="7">
+              <div class="defect-radio-group">
+                <label class="defect-radio-item">
+                  <input type="radio" name="defectType" value="OUTER_DAMAGE" onchange="onDefectChange(this.value)" />
+                  <span class="defect-radio-box"></span>
+                  <span class="defect-radio-label">외관 손상</span>
+                </label>
+                <label class="defect-radio-item">
+                  <input type="radio" name="defectType" value="SEALING" onchange="onDefectChange(this.value)" />
+                  <span class="defect-radio-box"></span>
+                  <span class="defect-radio-label">실링 불량</span>
+                </label>
+                <label class="defect-radio-item">
+                  <input type="radio" name="defectType" value="HEMMING" onchange="onDefectChange(this.value)" />
+                  <span class="defect-radio-box"></span>
+                  <span class="defect-radio-label">헤밍 불량</span>
+                </label>
+                <label class="defect-radio-item">
+                  <input type="radio" name="defectType" value="HOLE_DEFORM" onchange="onDefectChange(this.value)" />
+                  <span class="defect-radio-box"></span>
+                  <span class="defect-radio-label">홀 변형</span>
+                </label>
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="ncr-lbl" colspan="2">원인 분석 *</td>
+            <td colspan="7" class="ncr-val tall">
+              <textarea id="root_cause" placeholder="불량 발생 원인을 분석하여 기술하세요."></textarea>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="ncr-lbl" colspan="2">시정 조치 *</td>
+            <td colspan="7" class="ncr-val tall">
+              <textarea id="action" placeholder="시정 조치 내용을 기술하세요."></textarea>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="ncr-lbl" colspan="2">재발 방지</td>
+            <td colspan="7" class="ncr-val tall">
+              <textarea id="prevention" placeholder="재발 방지를 위한 조치를 기술하세요."></textarea>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="ncr-lbl" colspan="2">담당자 *</td>
+            <td class="ncr-val" colspan="2"><input type="text" id="handler" placeholder="홍길동" /></td>
+            <td class="ncr-lbl" colspan="2">메모</td>
+            <td class="ncr-val" colspan="3"><input type="text" id="memo" placeholder="추가 참고사항 (선택)" /></td>
+          </tr>
+        </table>
+
+      </div><!-- /ncr-wrap -->
+
+      <div class="action-bar">
+        <button class="btn-ghost" onclick="goBack()">← 이전</button>
+        <div style="display:flex;gap:10px">
+          <button class="btn-save" id="draftBtn" onclick="saveDraft()">임시 저장</button>
+          <button class="btn-submit" id="nextBtn" onclick="goNext()">다음 단계 →</button>
+        </div>
+      </div>
+
+    </div><!-- /panel-left -->
+
+    <!-- 우측: 유사 사례 -->
+    <div class="panel-right">
+      <div class="panel-title">
+        🔍 유사 사례
+        <small id="similarCount"></small>
+      </div>
+      <div id="similarList">
+        <div class="empty-state">
+          <div class="es-icon">🔍</div>
+          <p>불량 유형을 선택하면<br/>유사 사례가 표시됩니다</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /split-wrap -->
+
+  <footer class="footer">
+    <div class="footer-left">© 2026 경북대 KDT 12기 · SILI 경진대회</div>
+    <div class="footer-status"><span class="status-dot"></span>로컬 서버 연결됨 · DB 정상</div>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/main.js"></script>
+  <script>
+    const DEFECT_LABELS = {
+      'OUTER_DAMAGE': '외관 손상', 'SEALING': '실링 불량',
+      'HEMMING': '헤밍 불량',     'HOLE_DEFORM': '홀 변형',
+    };
+
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    if (!user) { location.href = '/'; }
+    else {
+      document.getElementById('userAvatar').textContent = user.name.charAt(0);
+      document.getElementById('userName').textContent = user.name + ' 담당자';
+    }
+    function doLogout() { sessionStorage.removeItem('user'); location.href = '/'; }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const rid = sessionStorage.getItem('claim_report_id');
+      if (!rid) { alert('1단계 정보가 없습니다.'); location.href = '/claim'; return; }
+
+      const d = await apiFetch('/api/reports/' + rid);
+      if (!d) { alert('데이터를 불러올 수 없습니다.'); location.href = '/claim'; return; }
+
+      setVal('supplier',          d.customer_name);
+      setVal('handler',           d.handler);
+      setVal('product_name',      d.product_name);
+      setVal('product_no',        d.product_no);
+      setVal('delivery_date',     d.delivery_date);
+      setVal('issue_date',        d.issue_date);
+      setVal('defect_location',   d.defect_location);
+      setVal('delivery_quantity', d.delivery_quantity);
+      setVal('defect_quantity',   d.defect_quantity);
+      setVal('root_cause',        d.root_cause_analysis);
+      setVal('action',            d.corrective_action);
+      setVal('prevention',        d.preventive_action);
+      setVal('memo',              d.claim_text);
+      setVal('document_no',       d.document_no);
+
+      if (d.defect_type) setDefectType(d.defect_type);
+
+      if (d.images?.[0]?.image_path) {
+        document.getElementById('previewImg').src = d.images[0].image_path;
+        document.getElementById('uploadFilename').textContent = '업로드된 사진';
+        document.getElementById('uploadPreview').style.display = 'block';
+        document.getElementById('uploadArea').classList.add('has-file');
+      }
+
+      if (d.ai_defect_type) {
+        document.getElementById('aiInline').style.display = 'block';
+        document.getElementById('aiResult').textContent = DEFECT_LABELS[d.ai_defect_type] || d.ai_defect_type;
+        document.getElementById('aiConf').textContent = d.ai_confidence ? '신뢰도 ' + (d.ai_confidence * 100).toFixed(1) + '%' : '';
+      }
+
+      // 5분마다 자동 저장
+      setInterval(async () => {
+        const saved = await saveEdits();
+        if (saved) showToast('자동 저장됨');
+      }, 5 * 60 * 1000);
+    });
+
+    function setVal(id, val) {
+      const el = document.getElementById(id);
+      if (el && val !== null && val !== undefined && val !== '') el.value = val;
+    }
+
+    function getDefectType() {
+      const r = document.querySelector('input[name="defectType"]:checked');
+      return r ? r.value : '';
+    }
+
+    function setDefectType(code) {
+      const r = document.querySelector(`input[name="defectType"][value="${code}"]`);
+      if (r) { r.checked = true; loadSimilar(code); }
+    }
+
+    function onDefectChange(code) { loadSimilar(code); }
+
+    async function handleDocUpload(input) {
+      const file = input.files[0]; if (!file) return;
+      const statusEl = document.getElementById('docStatus');
+      const btnEl    = document.getElementById('docUploadBtn');
+      statusEl.className = 'doc-status loading';
+      statusEl.textContent = '📄 ' + file.name + ' 분석 중...';
+      btnEl.disabled = true;
+      const fd1 = new FormData(); fd1.append('file', file);
+      const extracted = await apiFetch('/api/parse-file', { method:'POST', body:fd1 });
+      if (!extracted?.extracted_text) {
+        statusEl.className = 'doc-status error'; statusEl.textContent = '텍스트 추출 실패.';
+        btnEl.disabled = false; return;
+      }
+      const params = new URLSearchParams({ text: extracted.extracted_text });
+      const parsed = await apiFetch('/api/parse-claim', {
+        method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:params
+      });
+      if (parsed) {
+        autoFill('supplier',          parsed.customer_name);
+        autoFill('product_name',      parsed.product_name);
+        autoFill('product_no',        parsed.product_no);
+        autoFill('handler',           parsed.handler);
+        autoFill('root_cause',        parsed.root_cause_analysis);
+        autoFill('action',            parsed.corrective_action);
+        autoFill('prevention',        parsed.preventive_action);
+        if (parsed.delivery_quantity) autoFill('delivery_quantity', String(parseInt(parsed.delivery_quantity)));
+        if (parsed.defect_quantity)   autoFill('defect_quantity',   String(parseInt(parsed.defect_quantity)));
+        const validCodes = ['OUTER_DAMAGE','SEALING','HEMMING','HOLE_DEFORM'];
+        if (parsed.defect_type && validCodes.includes(parsed.defect_type)) setDefectType(parsed.defect_type);
+        document.getElementById('autoFillBanner').classList.add('show');
+      }
+      statusEl.className = 'doc-status success';
+      statusEl.textContent = '✓ ' + file.name + ' 자동 입력 완료';
+      btnEl.disabled = false;
+    }
+
+    function autoFill(id, value) {
+      const el = document.getElementById(id);
+      if (!el || !value) return;
+      el.value = value; el.classList.add('auto-filled');
+      el.addEventListener('input', () => el.classList.remove('auto-filled'), { once:true });
+    }
+
+    async function handleImage(input) {
+      const file = input.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('previewImg').src = e.target.result;
+        document.getElementById('uploadFilename').textContent = file.name;
+        document.getElementById('uploadPreview').style.display = 'block';
+        document.getElementById('uploadArea').classList.add('has-file');
+      };
+      reader.readAsDataURL(file);
+      document.getElementById('aiInline').style.display = 'block';
+      document.getElementById('aiResult').textContent = '분석 중...';
+      document.getElementById('aiConf').textContent = '';
+      const fd = new FormData(); fd.append('image', file);
+      const rid = sessionStorage.getItem('claim_report_id');
+      if (rid) await apiFetch('/api/reports/' + rid + '/images', { method:'POST', body:fd });
+      const data = await apiFetch('/api/classify', { method:'POST', body:fd });
+      if (data) {
+        document.getElementById('aiResult').textContent = data.label;
+        document.getElementById('aiConf').textContent = '신뢰도 ' + data.confidence_pct + (data.is_dummy ? ' (시연용)' : '');
+        setDefectType(data.defect_type);
+      } else {
+        document.getElementById('aiResult').textContent = '분류 실패 — 직접 선택해주세요';
+      }
+    }
+
+    function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    async function loadSimilar(defectType) {
+      const container = document.getElementById('similarList');
+      const countEl   = document.getElementById('similarCount');
+      container.innerHTML = '<div class="loading-state"><div class="spinner"></div>유사 사례 검색 중...</div>';
+      const supplier = document.getElementById('supplier').value.trim();
+      const params = new URLSearchParams({ defect_type: defectType, limit: 3, min_score: 30 });
+      if (supplier) params.append('customer_name', supplier);
+      const cases = await apiFetch('/api/reports/similar?' + params);
+      if (!cases || !cases.length) {
+        countEl.textContent = '';
+        container.innerHTML = '<div class="empty-state"><div class="es-icon">🔍</div><p>유사 사례가 없습니다.<br/>직접 작성해 주세요.</p></div>';
+        return;
+      }
+      countEl.textContent = cases.length + '건';
+      window._similarCases = cases;
+      container.innerHTML = '';
+      cases.forEach((c, i) => {
+        const defectLabel = DEFECT_LABELS[c.defect_type] || c.defect_type || '—';
+        const field = (label, val) => {
+          const empty = !val || !String(val).trim();
+          return `<div class="sc-field"><div class="sc-field-label">${label}</div><div class="sc-field-value${empty?' empty':''}">${empty ? '미작성' : escHtml(val)}</div></div>`;
+        };
+        const card = document.createElement('div');
+        card.className = 'similar-card';
+        card.innerHTML = `
+          <div class="sc-head">
+            <div>
+              <div class="sc-customer">${escHtml(c.customer_name||'—')}</div>
+              <div class="sc-date">접수일: ${(c.issue_date||c.received_date||'—').slice(0,10)} · #${c.report_id}</div>
+            </div>
+            <div class="sc-badges"><span class="sc-badge badge-defect">${escHtml(defectLabel)}</span></div>
+          </div>
+          <div class="sc-divider"></div>
+          ${field('제품/부품', [c.product_name, c.part_name].filter(Boolean).join(' / '))}
+          ${field('불량 위치', c.defect_location)}
+          ${field('원인 분석', c.root_cause_analysis)}
+          ${field('시정 조치', c.corrective_action)}
+          ${field('재발 방지', c.preventive_action)}
+          ${c.images && c.images.length > 0
+            ? `<img src="${escHtml(c.images[0].image_path)}" alt="불량 사진" style="width:100%;max-height:140px;object-fit:cover;border-radius:6px;margin-top:8px">`
+            : ''}
+          <button class="sc-use-btn" onclick="applySimilar(${i})">이 사례 적용</button>
+        `;
+        container.appendChild(card);
+      });
+
+      // 첫 번째 사례 자동 적용 (빈 경우만)
+      const first = cases[0];
+      if (!document.getElementById('root_cause').value) document.getElementById('root_cause').value = first.root_cause_analysis || '';
+      if (!document.getElementById('action').value)     document.getElementById('action').value     = first.corrective_action   || '';
+      if (!document.getElementById('prevention').value) document.getElementById('prevention').value = first.preventive_action   || '';
+    }
+
+    function applySimilar(idx) {
+      const c = (window._similarCases || [])[idx]; if (!c) return;
+      document.getElementById('root_cause').value = c.root_cause_analysis || '';
+      document.getElementById('action').value     = c.corrective_action   || '';
+      document.getElementById('prevention').value = c.preventive_action   || '';
+      showToast('유사 사례 내용이 적용되었습니다.');
+    }
+
+    async function buildUpdateBody() {
+      return {
+        customer_name:       document.getElementById('supplier').value.trim()           || null,
+        handler:             document.getElementById('handler').value.trim()             || null,
+        defect_type:         getDefectType()                                             || null,
+        product_name:        document.getElementById('product_name').value.trim()       || null,
+        product_no:          document.getElementById('product_no').value.trim()         || null,
+        defect_location:     document.getElementById('defect_location').value.trim()    || null,
+        issue_date:          document.getElementById('issue_date').value                || null,
+        delivery_date:       document.getElementById('delivery_date').value             || null,
+        delivery_quantity:   parseInt(document.getElementById('delivery_quantity').value) || null,
+        defect_quantity:     parseInt(document.getElementById('defect_quantity').value)   || null,
+        root_cause_analysis: document.getElementById('root_cause').value.trim()         || null,
+        corrective_action:   document.getElementById('action').value.trim()             || null,
+        preventive_action:   document.getElementById('prevention').value.trim()         || null,
+      };
+    }
+
+    async function saveEdits() {
+      const rid = sessionStorage.getItem('claim_report_id'); if (!rid) return null;
+      return apiFetch('/api/reports/' + rid, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(await buildUpdateBody()),
+      });
+    }
+
+    async function goBack() {
+      await saveEdits();
+      location.href = '/claim';
+    }
+
+    async function saveDraft() {
+      const rid = sessionStorage.getItem('claim_report_id'); if (!rid) return;
+      const btn = document.getElementById('draftBtn');
+      btn.disabled = true; btn.textContent = '저장 중...';
+      const body = await buildUpdateBody();
+      body.report_status = 'submitted';
+      const result = await apiFetch('/api/reports/' + rid, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+      if (result) {
+        sessionStorage.removeItem('claim_report_id');
+        alert('저장되었습니다.\n클레임 목록에서 이어서 작성할 수 있습니다.');
+        location.href = '/list';
+      } else {
+        alert('저장에 실패했습니다.');
+        btn.disabled = false; btn.textContent = '임시 저장';
+      }
+    }
+
+    async function goNext() {
+      if (!document.getElementById('supplier').value.trim()) { alert('납품처(고객사)는 필수입니다.'); return; }
+      const rootCause  = document.getElementById('root_cause').value.trim();
+      const corrective = document.getElementById('action').value.trim();
+      if (!rootCause)  { alert('원인 분석을 입력하세요.'); document.getElementById('root_cause').focus(); return; }
+      if (!corrective) { alert('시정 조치를 입력하세요.'); document.getElementById('action').focus(); return; }
+      const btn = document.getElementById('nextBtn');
+      btn.disabled = true; btn.textContent = '저장 중...';
+      const saved = await saveEdits();
+      if (saved) {
+        location.href = '/claim-step3';
+      } else {
+        alert('저장에 실패했습니다.');
+        btn.disabled = false; btn.textContent = '다음 단계 →';
+      }
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+  </script>
+</body>
+</html>

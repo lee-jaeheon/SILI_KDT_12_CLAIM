@@ -105,8 +105,8 @@ body {
    카드 (hub)
    ===================== */
 .cards {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 20px; width: 100%; max-width: 580px;
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px; width: 100%; max-width: 860px;
 }
 .card {
   background: var(--white); border-radius: var(--radius-lg);

@@ -93,9 +93,9 @@
 
   <div class="step-header">
     <div class="step-wrap">
-      <div class="step done"><div class="step-num">✓</div><div class="step-label">정보 입력</div></div>
+      <div class="step done"><div class="step-num">✓</div><div class="step-label">기본 정보 · 사진</div></div>
       <div class="step-divider"></div>
-      <div class="step done"><div class="step-num">✓</div><div class="step-label">보고서 수정 · 유사사례</div></div>
+      <div class="step done"><div class="step-num">✓</div><div class="step-label">보고서 작성</div></div>
       <div class="step-divider"></div>
       <div class="step active"><div class="step-num">3</div><div class="step-label">미리보기 · 다운로드</div></div>
     </div>
@@ -144,11 +144,10 @@
     }
     function doLogout() { sessionStorage.removeItem('user'); location.href = '/'; }
 
-    const urlParams = new URLSearchParams(location.search);
-    const reportId  = parseInt(urlParams.get('id'));
+    const reportId = parseInt(sessionStorage.getItem('claim_report_id'));
     if (!reportId) { location.href = '/list'; }
 
-    function goBack() { location.href = '/report-draft?id=' + reportId; }
+    function goBack() { location.href = '/claim-step2'; }
 
     async function loadPreview() {
       const container = document.getElementById('docx-container');
@@ -190,6 +189,7 @@
 
     async function completeAndExit() {
       await setApproved();
+      sessionStorage.removeItem('claim_report_id');
       location.href = '/list';
     }
 
@@ -212,6 +212,7 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        sessionStorage.removeItem('claim_report_id');
         showToast('다운로드 완료. 목록으로 이동합니다...');
         setTimeout(() => { location.href = '/list'; }, 1200);
       } catch (e) {
@@ -219,6 +220,19 @@
         btn.disabled = false;
         btn.innerHTML = '⬇ 다운로드 (.docx)';
       }
+    }
+
+    function showToast(msg) {
+      let t = document.getElementById('toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'toast';
+        t.style.cssText = 'position:fixed;bottom:56px;left:50%;transform:translateX(-50%) translateY(20px);background:#2c2c2c;color:#fff;padding:10px 22px;border-radius:24px;font-size:13px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:999;';
+        document.body.appendChild(t);
+      }
+      t.textContent = msg;
+      t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)';
+      setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(20px)'; }, 2500);
     }
 
     loadPreview();

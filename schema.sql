@@ -9,11 +9,11 @@
 --    4. defect_report_images  보고서 첨부 이미지
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS claim_db
+CREATE DATABASE IF NOT EXISTS claims_db
     DEFAULT CHARACTER SET utf8mb4
     DEFAULT COLLATE utf8mb4_unicode_ci;
 
-USE claim_db;
+USE claims_db;
 
 
 -- ------------------------------------------------------------

@@ -41,8 +41,8 @@
     .table-card-sub { font-size: 12px; color: #888; margin-top: 3px; }
     .toolbar { display: flex; align-items: center; gap: 10px; padding: 14px 24px; border-bottom: 1px solid #f0f0f0; }
     .search-wrap { flex: 1; display: flex; align-items: center; gap: 8px; background: #f8f8f8; border: 1px solid #e0e0e0; border-radius: 8px; padding: 8px 14px; }
-    .search-wrap input { border: none; background: transparent; font-size: 13px; color: #2c2c2c; outline: none; width: 100%; }
-    .filter-select { padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 13px; color: #555; background: #fff; outline: none; cursor: pointer; }
+    .search-wrap input { border: none; background: transparent; font-size: 13px; color: #2c2c2c; outline: none; width: 100%; font-family: inherit; }
+    .filter-select { padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 13px; color: #555; background: #fff; outline: none; cursor: pointer; font-family: inherit; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th { padding: 11px 16px; text-align: left; color: #888; font-weight: 500; font-size: 12px; border-bottom: 1px solid #f0f0f0; background: #fafafa; }
     td { padding: 13px 16px; border-bottom: 1px solid #f5f5f5; color: #2c2c2c; vertical-align: middle; }
@@ -52,11 +52,19 @@
     .supplier-name { font-weight: 500; }
     .defect-tag { display: inline-flex; padding: 3px 10px; border-radius: 20px; font-size: 11px; background: #f0f0f0; color: #555; border: 1px solid #e0e0e0; }
     .ai-tag { font-size: 11px; color: #0d6b6c; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; }
     .s-new      { background: #e8f0fe; color: #1a4fa0; }
     .s-progress { background: #fff8e0; color: #a06010; }
     .s-done     { background: #e8f5e9; color: #1e6e3e; }
     .s-rejected { background: #ffebee; color: #b71c1c; }
+    .s-draft    { background: #f0f0f0; color: #888; }
     .empty-row td { text-align: center; color: #bbb; padding: 40px; font-size: 13px; }
+
+    /* 삭제 버튼 */
+    .delete-cell { width: 40px; padding: 4px 0 !important; text-align: center; }
+    .delete-btn { display: none; border: none; background: none; cursor: pointer; color: #e53935; font-size: 15px; padding: 5px 8px; border-radius: 6px; line-height: 1; }
+    tr.clickable:hover .delete-btn { display: inline-flex; }
+    .delete-btn:hover { background: #fff5f5; }
 
     /* 모달 */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
@@ -65,6 +73,7 @@
     .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
     .modal-title { font-size: 17px; font-weight: 500; color: #2c2c2c; }
     .modal-sub { font-size: 12px; color: #888; margin-top: 3px; }
+    .modal-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .modal-close { background: none; border: none; font-size: 24px; color: #aaa; cursor: pointer; padding: 0; line-height: 1; }
     .modal-close:hover { color: #2c2c2c; }
     .modal-section { margin-bottom: 24px; }
@@ -81,24 +90,33 @@
     .similar-date { font-size: 11px; color: #aaa; }
     .similar-body { font-size: 12px; color: #666; line-height: 1.7; }
     .no-similar { font-size: 13px; color: #bbb; text-align: center; padding: 20px; }
-    .status-action-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .btn-approve { padding:9px 22px; background:#0d6b6c; color:#fff; border:none; border-radius:9px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
-    .btn-approve:hover { background:#0a5a5b; }
-    .btn-reject  { padding:9px 22px; background:#fff; color:#e53935; border:1.5px solid #e53935; border-radius:9px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
-    .btn-reject:hover  { background:#fff5f5; }
-    .btn-reopen  { padding:9px 22px; background:#fff; color:#888; border:1px solid #d0d0d0; border-radius:9px; font-size:13px; cursor:pointer; font-family:inherit; }
-    .btn-reopen:hover  { background:#f5f5f5; }
-    .current-status-note { font-size:12px; color:#888; margin-top:8px; }
-    .btn-resume { padding:10px 22px; background:#0d6b6c; color:#fff; border:none; border-radius:9px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
-    .btn-resume:hover { background:#0a5a5b; }
-    .btn-dl { padding:10px 22px; background:#fff; color:#0d6b6c; border:1.5px solid #0d6b6c; border-radius:9px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
-    .btn-dl:hover { background:#e8f5f5; }
-    .delete-cell { width:40px; padding:4px 0 !important; text-align:center; }
-    .delete-btn { display:none; border:none; background:none; cursor:pointer; color:#e53935; font-size:15px; padding:5px 8px; border-radius:6px; line-height:1; }
-    tr.clickable:hover .delete-btn { display:inline-flex; }
-    .delete-btn:hover { background:#fff5f5; }
 
-    /* 통계 */
+    /* 상태 변경 버튼 */
+    .status-action-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .btn-approve { padding: 9px 22px; background: #0d6b6c; color: #fff; border: none; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .btn-approve:hover { background: #0a5a5b; }
+    .btn-reject  { padding: 9px 22px; background: #fff; color: #e53935; border: 1.5px solid #e53935; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .btn-reject:hover  { background: #fff5f5; }
+    .btn-reopen  { padding: 9px 22px; background: #fff; color: #888; border: 1px solid #d0d0d0; border-radius: 9px; font-size: 13px; cursor: pointer; font-family: inherit; }
+    .btn-reopen:hover  { background: #f5f5f5; }
+    .btn-resume  { padding: 9px 22px; background: #0d6b6c; color: #fff; border: none; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .btn-resume:hover  { background: #0a5a5b; }
+    .btn-dl      { padding: 9px 22px; background: #fff; color: #0d6b6c; border: 1.5px solid #0d6b6c; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .btn-dl:hover { background: #e8f5f5; }
+    .current-status-note { font-size: 12px; color: #888; margin-top: 8px; }
+
+    /* 삭제 확인 모달 */
+    .del-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; align-items: center; justify-content: center; }
+    .del-modal-overlay.show { display: flex; }
+    .del-modal { background: #fff; border-radius: 14px; padding: 28px; max-width: 360px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,.15); }
+    .del-modal-title { font-size: 15px; font-weight: 600; color: #1a1a2e; margin-bottom: 8px; }
+    .del-modal-desc { font-size: 13px; color: #555; margin-bottom: 24px; line-height: 1.6; }
+    .del-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .del-modal-cancel  { padding: 8px 16px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; font-size: 13px; cursor: pointer; font-family: inherit; }
+    .del-modal-confirm { padding: 8px 16px; border: none; border-radius: 8px; background: #e53935; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .del-modal-confirm:hover { background: #c62828; }
+
+    /* 통계 탭 */
     .period-tabs { display: flex; gap: 6px; margin-bottom: 20px; }
     .period-tab { padding: 6px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; border: 1px solid #e0e0e0; background: #fff; color: #888; transition: all 0.15s; font-family: inherit; }
     .period-tab.active { background: #0d6b6c; color: #fff; border-color: #0d6b6c; }
@@ -121,13 +139,13 @@
       <img src="logo.png" class="logo-icon" alt="로고" />
       <div>
         <div class="logo-title">납품 불량 클레임 대응 시스템</div>
-        <div class="logo-sub">QA 관리 시스템</div>
+        <div class="logo-sub">AJIN INDUSTRIAL · QA 관리 시스템</div>
       </div>
     </div>
     <div class="user-info">
-      <div class="user-avatar" id="userAvatar">홍</div>
+      <div class="user-avatar" id="userAvatar"></div>
       <div>
-        <div class="user-name" id="userName">홍길동 담당자</div>
+        <div class="user-name" id="userName"></div>
         <div class="user-team">품질보증팀</div>
       </div>
       <button class="logout-btn" onclick="doLogout()">로그아웃</button>
@@ -223,8 +241,7 @@
           <button class="period-tab" onclick="switchPeriod('quarterly', this)">분기별</button>
           <button class="period-tab" onclick="switchPeriod('yearly', this)">연별</button>
         </div>
-        <select class="filter-select" id="yearSelect" style="display:block;" onchange="rerenderStats()">
-        </select>
+        <select class="filter-select" id="yearSelect" onchange="rerenderStats()"></select>
       </div>
       <div style="margin-bottom:16px;">
         <div class="stat-section-title">주요 불량 유형 Top 3</div>
@@ -262,8 +279,8 @@
         <div class="modal-section-title">대응 내용</div>
         <div class="info-grid" id="modalResponse"></div>
       </div>
-      <div class="modal-section" id="modalStatusSection" style="display:none">
-        <div class="modal-section-title">상태 변경</div>
+      <div class="modal-section" id="modalStatusSection">
+        <div class="modal-section-title">작업</div>
         <div id="modalStatusActions"></div>
       </div>
       <div class="modal-section">
@@ -278,6 +295,18 @@
     <div class="footer-status"><span class="status-dot"></span>로컬 서버 연결됨 · DB 정상</div>
   </footer>
 
+  <!-- 삭제 확인 모달 -->
+  <div class="del-modal-overlay" id="delModalOverlay">
+    <div class="del-modal">
+      <div class="del-modal-title">클레임 삭제</div>
+      <div class="del-modal-desc" id="delModalDesc"></div>
+      <div class="del-modal-actions">
+        <button class="del-modal-cancel" onclick="closeDelModal()">취소</button>
+        <button class="del-modal-confirm" onclick="confirmDelete()">삭제</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/main.js"></script>
   <script>
     const user = JSON.parse(sessionStorage.getItem('user'));
@@ -289,10 +318,8 @@
     function doLogout() { sessionStorage.removeItem('user'); location.href = '/'; }
 
     const DEFECT_LABELS = {
-      'OUTER_DAMAGE': '외관 손상',
-      'SEALING':      '실링 불량',
-      'HEMMING':      '헤밍 불량',
-      'HOLE_DEFORM':  '홀 변형',
+      'OUTER_DAMAGE': '외관 손상', 'SEALING': '실링 불량',
+      'HEMMING': '헤밍 불량',     'HOLE_DEFORM': '홀 변형',
     };
     const STATUS_MAP = {
       'draft':     '접수',
@@ -302,17 +329,19 @@
       'rejected':  '반려',
       'archived':  '완료',
     };
+    const STATUS_STEP = {
+      '접수':  '/claim',
+      '처리중': '/claim-step2',
+      '완료':  '/claim-step3',
+      '반려':  '/claim-step2',
+    };
 
     function escHtml(s) {
       return String(s ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    // API 응답 → 프론트 데이터 형식 변환
     function normalize(item) {
       return {
         id:           item.report_id,
@@ -320,36 +349,36 @@
         supplier:     item.customer_name || '-',
         defect_type:  item.defect_type || '',
         ai_suggestion: item.ai_defect_type || null,
-        cause_code:   item.root_cause_analysis?.slice(0, 20) || '',
-        action:       item.corrective_action || '',
-        prevention:   item.preventive_action || '',
         handler:      item.handler || '-',
         status:       STATUS_MAP[item.report_status] || item.report_status || '접수',
-        memo:         item.claim_summary || '',
+        raw_status:   item.report_status || 'draft',
         image_path:   item.images?.[0]?.image_path || null,
         document_no:  item.document_no || '',
         product_name: item.product_name || '',
-        part_name:    item.part_name || '',
+        delivery_date: item.delivery_date || '',
+        delivery_quantity: item.delivery_quantity || '',
+        defect_quantity:   item.defect_quantity || '',
+        defect_location:   item.defect_location || '',
         root_cause:   item.root_cause_analysis || '',
-      raw_status:   item.report_status || 'draft',
-      _raw:         item,
+        action:       item.corrective_action || '',
+        prevention:   item.preventive_action || '',
+        memo:         item.claim_text || '',
       };
     }
 
     let allData = [];
     let periodChartInst = null, defectChartInst = null;
+    let currentPeriod = 'monthly';
 
     async function loadData() {
       const data = await apiFetch('/api/reports/?limit=500');
-      if (data && data.items) {
-        allData = data.items.map(normalize);
-      }
+      if (data && data.items) allData = data.items.map(normalize);
       renderTable();
       updateYearSelect('monthly');
     }
 
     function switchTab(name, btn) {
-      document.getElementById('tab-list').style.display = name === 'list' ? 'block' : 'none';
+      document.getElementById('tab-list').style.display  = name === 'list'  ? 'block' : 'none';
       document.getElementById('tab-stats').style.display = name === 'stats' ? 'block' : 'none';
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
@@ -363,15 +392,15 @@
     }
 
     function updateStats(data) {
-      document.getElementById('statTotal').textContent = data.length;
-      document.getElementById('statNew').textContent = data.filter(d => d.status === '접수').length;
+      document.getElementById('statTotal').textContent    = data.length;
+      document.getElementById('statNew').textContent      = data.filter(d => d.status === '접수').length;
       document.getElementById('statProgress').textContent = data.filter(d => d.status === '처리중').length;
-      document.getElementById('statDone').textContent = data.filter(d => d.status === '완료' || d.status === '반려').length;
+      document.getElementById('statDone').textContent     = data.filter(d => d.status === '완료' || d.status === '반려').length;
     }
 
     function statusBadge(s) {
       const m = { '접수':'s-new', '처리중':'s-progress', '완료':'s-done', '반려':'s-rejected' };
-      return `<span class="status-badge ${m[s]||''}">${escHtml(s)}</span>`;
+      return `<span class="status-badge ${m[s]||'s-draft'}">${escHtml(s)}</span>`;
     }
 
     function renderTable() {
@@ -379,7 +408,7 @@
       const fs = document.getElementById('filterStatus').value;
       const fd = document.getElementById('filterDefect').value;
       const filtered = allData.filter(d =>
-        (!search || [d.supplier, d.defect_type, d.handler, DEFECT_LABELS[d.defect_type] || '']
+        (!search || [d.supplier, d.defect_type, d.handler, DEFECT_LABELS[d.defect_type]||'']
           .some(v => v.toLowerCase().includes(search))) &&
         (!fs || d.status === fs) &&
         (!fd || d.defect_type === fd)
@@ -402,7 +431,7 @@
           <td>${escHtml(d.handler)}</td>
           <td>${statusBadge(d.status)}</td>
           <td class="delete-cell">
-            <button class="delete-btn" onclick="event.stopPropagation(); deleteReport(${d.id})" title="삭제">🗑</button>
+            <button class="delete-btn" onclick="event.stopPropagation(); askDelete(${d.id})" title="삭제">🗑</button>
           </td>
         </tr>`).join('');
     }
@@ -410,9 +439,11 @@
     async function openModal(id) {
       const d = allData.find(x => x.id === id);
       if (!d) return;
+
       document.getElementById('modalTitle').textContent =
         `클레임 #${String(d.id).padStart(4,'0')}${d.document_no ? ' · ' + d.document_no : ''}`;
       document.getElementById('modalSub').textContent = `${d.created_at} · ${d.supplier}`;
+
       document.getElementById('modalInfo').innerHTML = `
         <div><div class="info-label">납품처</div><div class="info-value">${escHtml(d.supplier)}</div></div>
         <div><div class="info-label">담당자</div><div class="info-value">${escHtml(d.handler)}</div></div>
@@ -421,6 +452,8 @@
         <div><div class="info-label">상태</div><div class="info-value">${statusBadge(d.status)}</div></div>
         <div><div class="info-label">접수일</div><div class="info-value">${escHtml(d.created_at || '-')}</div></div>
         ${d.product_name ? `<div><div class="info-label">품명</div><div class="info-value">${escHtml(d.product_name)}</div></div>` : ''}
+        ${d.delivery_quantity ? `<div><div class="info-label">납품수량</div><div class="info-value">${escHtml(String(d.delivery_quantity))} EA</div></div>` : ''}
+        ${d.defect_quantity ? `<div><div class="info-label">불량수량</div><div class="info-value">${escHtml(String(d.defect_quantity))} EA</div></div>` : ''}
         ${d.memo ? `<div style="grid-column:1/-1"><div class="info-label">메모</div><div class="info-value">${escHtml(d.memo)}</div></div>` : ''}
       `;
       document.getElementById('modalImage').innerHTML = d.image_path
@@ -432,53 +465,48 @@
         <div style="grid-column:1/-1"><div class="info-label">예방 대책</div><div class="info-value">${escHtml(d.prevention || '-')}</div></div>
       `;
 
-      // 상태 변경 및 작업 버튼
+      // 작업 버튼
       const rawSt = d.raw_status;
-      const statusSection  = document.getElementById('modalStatusSection');
-      const statusActions  = document.getElementById('modalStatusActions');
-      statusSection.style.display = 'block';
-
-      let navBtn = '';
-      if (rawSt === 'draft' || rawSt === 'submitted') {
-        navBtn = `<button class="btn-resume" onclick="location.href='/report-draft?id=${id}'">✎ 이어서 작업</button>`;
+      const actionsEl = document.getElementById('modalStatusActions');
+      let resumeBtn = '';
+      if (rawSt === 'draft') {
+        resumeBtn = `<button class="btn-resume" onclick="goToStep(${id})">✎ 이어서 작업</button>`;
+      } else if (rawSt === 'submitted' || rawSt === 'reviewing') {
+        resumeBtn = `<button class="btn-resume" onclick="goToStep(${id})">✎ 이어서 작업</button>`;
       } else if (rawSt === 'approved') {
-        navBtn = `<button class="btn-dl" onclick="downloadReport(${id})">⬇ 보고서 다운로드</button>`;
+        resumeBtn = `<button class="btn-dl" onclick="downloadReport(${id})">⬇ 보고서 다운로드</button>`;
       }
 
       if (rawSt !== 'approved' && rawSt !== 'rejected') {
-        const isDraft = rawSt === 'draft';
-        statusActions.innerHTML = `
+        actionsEl.innerHTML = `
           <div class="status-action-bar">
-            ${navBtn}
-            ${isDraft ? `<button class="btn-reopen" onclick="changeStatus(${id},'submitted')">접수 처리</button>` : ''}
+            ${resumeBtn}
             <button class="btn-approve" onclick="changeStatus(${id},'approved')">✓ 완료 처리</button>
             <button class="btn-reject"  onclick="changeStatus(${id},'rejected')">✕ 반려</button>
           </div>
           <div class="current-status-note">현재 상태: <strong>${STATUS_MAP[rawSt] || rawSt}</strong></div>`;
       } else {
-        statusActions.innerHTML = `
+        actionsEl.innerHTML = `
           <div class="status-action-bar">
-            ${navBtn}
+            ${resumeBtn}
             <button class="btn-reopen" onclick="changeStatus(${id},'submitted')">↩ 재처리 요청</button>
           </div>
-          <div class="current-status-note">현재 상태: <strong>${STATUS_MAP[rawSt] || rawSt}</strong>${rawSt === 'approved' ? ' — 재처리 요청 시 \'처리중\'으로 변경됩니다.' : ''}</div>`;
+          <div class="current-status-note">현재 상태: <strong>${STATUS_MAP[rawSt] || rawSt}</strong></div>`;
       }
 
-      // 유사 사례 API 호출
-      document.getElementById('modalSimilar').innerHTML = '<div class="no-similar">유사 사례 검색 중...</div>';
       document.getElementById('modalOverlay').classList.add('open');
 
-      const params = new URLSearchParams({ defect_type: d.defect_type, limit: 3, min_score: 40 });
+      document.getElementById('modalSimilar').innerHTML = '<div class="no-similar">유사 사례 검색 중...</div>';
+      const params = new URLSearchParams({ defect_type: d.defect_type, limit: 3, min_score: 30 });
       if (d.supplier) params.append('customer_name', d.supplier);
       const similar = await apiFetch(`/api/reports/similar?${params}`);
       const filtered = (similar || []).filter(s => s.report_id !== id);
-
       document.getElementById('modalSimilar').innerHTML = filtered.length
         ? filtered.map(s => `
           <div class="similar-card">
             <div class="similar-header">
               <div class="similar-title">${escHtml(s.customer_name || '-')} · ${escHtml(DEFECT_LABELS[s.defect_type] || s.defect_type || '-')}</div>
-              <div class="similar-date">${escHtml((s.received_date || '').slice(0,10) || '-')}</div>
+              <div class="similar-date">${escHtml((s.received_date || '').slice(0,10))}</div>
             </div>
             <div class="similar-body">
               원인: ${escHtml(s.root_cause_analysis || '-')}<br/>
@@ -488,12 +516,20 @@
         : '<div class="no-similar">유사 사례가 없습니다.</div>';
     }
 
+    function goToStep(id) {
+      const d = allData.find(x => x.id === (id ?? currentModalId));
+      if (!d) return;
+      closeModalDirect();
+      sessionStorage.setItem('claim_report_id', String(d.id));
+      location.href = STATUS_STEP[d.status] || '/claim';
+    }
+
     function closeModal(e) { if (e.target === document.getElementById('modalOverlay')) closeModalDirect(); }
     function closeModalDirect() { document.getElementById('modalOverlay').classList.remove('open'); }
 
     async function changeStatus(id, newStatus) {
-      const labels = { draft:'초안', submitted:'처리중', approved:'완료', rejected:'반려' };
-      if (!confirm(`상태를 '${labels[newStatus]}'(으)로 변경하시겠습니까?`)) return;
+      const labels = { submitted:'처리중', approved:'완료', rejected:'반려' };
+      if (!confirm(`상태를 '${labels[newStatus] || newStatus}'(으)로 변경하시겠습니까?`)) return;
       const res = await apiFetch(`/api/reports/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -507,8 +543,44 @@
       }
     }
 
-    let currentPeriod = 'monthly';
+    function downloadReport(id) {
+      const a = document.createElement('a');
+      a.href = `/api/reports/${id}/download`;
+      a.download = '';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
 
+    // ── 삭제 ──────────────────────────────────────────────────────
+    let _deleteTargetId = null;
+
+    function askDelete(id) {
+      _deleteTargetId = id;
+      const d = allData.find(x => x.id === id);
+      const label = d?.document_no ? `<strong>${escHtml(d.document_no)}</strong>` : `클레임 #${String(id).padStart(4,'0')}`;
+      document.getElementById('delModalDesc').innerHTML = `${label}을(를) 삭제하시겠습니까?<br/>삭제 후에는 복구할 수 없습니다.`;
+      document.getElementById('delModalOverlay').classList.add('show');
+    }
+
+    function closeDelModal() {
+      document.getElementById('delModalOverlay').classList.remove('show');
+      _deleteTargetId = null;
+    }
+
+    async function confirmDelete() {
+      if (!_deleteTargetId) return;
+      const id = _deleteTargetId;
+      closeDelModal();
+      const res = await apiFetch(`/api/reports/${id}`, { method: 'DELETE' });
+      if (res !== null) {
+        await loadData();
+      } else {
+        alert('삭제에 실패했습니다.');
+      }
+    }
+
+    // ── 통계 ──────────────────────────────────────────────────────
     function switchPeriod(period, btn) {
       document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
@@ -524,9 +596,7 @@
       if (period === 'yearly') { sel.style.display = 'none'; return; }
       sel.style.display = 'block';
       const years = [...new Set(
-        allData
-          .map(d => (d.created_at || '').slice(0, 4))
-          .filter(y => /^\d{4}$/.test(y))
+        allData.map(d => (d.created_at || '').slice(0,4)).filter(y => /^\d{4}$/.test(y))
       )].sort().reverse();
       const current = sel.value;
       sel.innerHTML = years.map(y => `<option value="${y}">${y}년</option>`).join('');
@@ -538,36 +608,36 @@
       const typeCounts = {};
       allData.forEach(d => {
         const label = DEFECT_LABELS[d.defect_type] || d.defect_type;
-        typeCounts[label] = (typeCounts[label] || 0) + 1;
+        if (label) typeCounts[label] = (typeCounts[label] || 0) + 1;
       });
       const sorted = Object.entries(typeCounts).sort((a,b) => b[1]-a[1]);
       const ranks = ['', 'second', 'third'];
       document.getElementById('topDefects').innerHTML = sorted.slice(0,3).map((t,i) => `
         <div class="top-defect-card">
           <div class="defect-rank ${ranks[i]}">${i+1}</div>
-          <div><div class="defect-name">${t[0]}</div><div class="defect-count">${t[1]}건</div></div>
-        </div>`).join('');
+          <div><div class="defect-name">${escHtml(t[0])}</div><div class="defect-count">${t[1]}건</div></div>
+        </div>`).join('') || '<div style="color:#bbb;font-size:13px;">데이터 없음</div>';
 
       const selectedYear = document.getElementById('yearSelect').value;
       let pdLabels, pdData, pdTitle;
       if (period === 'monthly') {
-        pdTitle = selectedYear ? selectedYear+'년 월별 클레임 접수 현황' : '월별 클레임 접수 현황';
+        pdTitle = (selectedYear ? selectedYear+'년 ' : '') + '월별 클레임 접수 현황';
         const counts = {};
         for (let m=1; m<=12; m++) counts[String(m).padStart(2,'0')] = 0;
         allData.filter(d => !selectedYear || d.created_at.slice(0,4) === selectedYear)
-               .forEach(d => { const k=d.created_at.slice(5,7); counts[k]=(counts[k]||0)+1; });
+               .forEach(d => { const k = d.created_at.slice(5,7); if (k) counts[k] = (counts[k]||0)+1; });
         pdLabels = Object.keys(counts).sort().map(k => parseInt(k)+'월');
         pdData   = Object.keys(counts).sort().map(k => counts[k]);
       } else if (period === 'quarterly') {
-        pdTitle = selectedYear ? selectedYear+'년 분기별 클레임 접수 현황' : '분기별 클레임 접수 현황';
+        pdTitle = (selectedYear ? selectedYear+'년 ' : '') + '분기별 클레임 접수 현황';
         const counts = { 'Q1':0, 'Q2':0, 'Q3':0, 'Q4':0 };
         allData.filter(d => !selectedYear || d.created_at.slice(0,4) === selectedYear)
-               .forEach(d => { const q='Q'+Math.ceil(parseInt(d.created_at.slice(5,7))/3); counts[q]=(counts[q]||0)+1; });
+               .forEach(d => { const q = 'Q'+Math.ceil(parseInt(d.created_at.slice(5,7))/3); if (counts[q] !== undefined) counts[q]++; });
         pdLabels = Object.keys(counts); pdData = Object.values(counts);
       } else {
         pdTitle = '연별 클레임 접수 현황';
         const counts = {};
-        allData.forEach(d => { const k=d.created_at.slice(0,4); counts[k]=(counts[k]||0)+1; });
+        allData.forEach(d => { const k = d.created_at.slice(0,4); if (k) counts[k] = (counts[k]||0)+1; });
         const keys = Object.keys(counts).sort();
         pdLabels = keys.map(k => k+'년'); pdData = keys.map(k => counts[k]);
       }
@@ -592,25 +662,6 @@
         options: { responsive:true, cutout:'60%',
           plugins:{ legend:{ position:'bottom', labels:{ padding:16, font:{ size:12 } } } } }
       });
-    }
-
-    async function deleteReport(id) {
-      if (!confirm(`클레임 #${String(id).padStart(4,'0')}을(를) 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
-      const res = await apiFetch(`/api/reports/${id}`, { method: 'DELETE' });
-      if (res !== null) {
-        await loadData();
-      } else {
-        alert('삭제에 실패했습니다.');
-      }
-    }
-
-    function downloadReport(id) {
-      const a = document.createElement('a');
-      a.href = `/api/reports/${id}/download`;
-      a.download = '';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
     }
 
     loadData();
