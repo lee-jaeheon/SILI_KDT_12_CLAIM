@@ -3,9 +3,7 @@ uvicorn[standard]
 python-multipart
 httpx
 pillow
-torch
-torchvision
-timm
+ultralytics
 pdfplumber
 python-docx
 aiofiles
