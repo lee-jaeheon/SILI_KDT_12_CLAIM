@@ -1,3 +1,4 @@
+.venv/
 venv/
 __pycache__/
 *.pyc
@@ -13,3 +14,9 @@ uploads/*
 *.pkl
 /models/
 .env
+
+# 딥러닝 학습 데이터 및 결과물
+dataset/
+runs/
+yolov8n-cls.pt
+yolo26n.pt
