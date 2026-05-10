@@ -11,3 +11,4 @@ python-docx
 aiofiles
 pymysql
 python-dotenv
+ultralytics
