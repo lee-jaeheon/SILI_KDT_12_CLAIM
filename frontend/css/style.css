@@ -55,25 +55,25 @@ body {
    ===================== */
 .topbar {
   background: var(--dark);
-  padding: 12px 32px;
+  padding: 16px 32px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
 }
 .logo-area { display: flex; align-items: center; gap: 12px; }
-.logo-icon { width: 34px; height: 34px; flex-shrink: 0; }
-.logo-title { color: #ffffff; font-size: 14px; font-weight: 500; }
-.logo-sub { color: #999; font-size: 11px; margin-top: 2px; }
+.logo-icon { width: 44px; height: 44px; flex-shrink: 0; }
+.logo-title { color: #ffffff; font-size: 16px; font-weight: 500; }
+.logo-sub { color: #999; font-size: 12px; margin-top: 2px; }
 .user-info { display: flex; align-items: center; gap: 10px; }
 .user-avatar {
-  width: 32px; height: 32px; border-radius: 50%;
+  width: 38px; height: 38px; border-radius: 50%;
   background: var(--primary);
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 500; color: #fff; flex-shrink: 0;
+  font-size: 14px; font-weight: 500; color: #fff; flex-shrink: 0;
 }
-.user-name { color: #ffffff; font-size: 13px; }
-.user-team { color: #999; font-size: 11px; margin-top: 1px; }
+.user-name { color: #ffffff; font-size: 15px; }
+.user-team { color: #999; font-size: 12px; margin-top: 1px; }
 
 /* =====================
    메인
@@ -322,12 +322,12 @@ tr.clickable:hover { background: var(--gray-bg); cursor: pointer; }
    툴바 / 탭 / 필터
    ===================== */
 .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
-.tabs { display: flex; gap: 4px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; }
 .tab {
   padding: 6px 14px; border-radius: 20px; border: 1px solid var(--gray-border);
   background: var(--white); font-size: 13px; color: #666; cursor: pointer; transition: all 0.15s;
 }
-.tab.active, .tab:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+.tab.active, .tab:hover { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
 .period-tabs { display: flex; gap: 4px; }
 .period-tab { padding: 5px 12px; border-radius: 6px; border: 1px solid var(--gray-border); background: var(--white); font-size: 12px; cursor: pointer; transition: all 0.15s; }
 .period-tab.active { background: var(--dark); color: #fff; border-color: var(--dark); }

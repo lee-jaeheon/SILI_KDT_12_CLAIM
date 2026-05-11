@@ -543,13 +543,23 @@
       }
     }
 
-    function downloadReport(id) {
-      const a = document.createElement('a');
-      a.href = `/api/reports/${id}/download`;
-      a.download = '';
+    async function downloadReport(id) {
+      const _u = JSON.parse(sessionStorage.getItem('user') || 'null');
+      const res = await fetch(`/api/reports/${id}/download`, {
+        headers: _u?.token ? { 'Authorization': 'Bearer ' + _u.token } : {},
+      });
+      if (!res.ok) { alert('다운로드 실패'); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      const cd   = res.headers.get('Content-Disposition') || '';
+      const m    = cd.match(/filename\*=UTF-8''(.+)/);
+      a.download = m ? decodeURIComponent(m[1]) : `report_${id}.docx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
 
     // ── 삭제 ──────────────────────────────────────────────────────

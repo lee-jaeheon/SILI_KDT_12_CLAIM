@@ -3,6 +3,7 @@ venv/
 __pycache__/
 *.pyc
 database/
+logs/
 uploads/*
 !uploads/sample_cases/
 !uploads/sample_cases/*.jpg

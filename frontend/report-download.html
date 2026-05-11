@@ -152,7 +152,10 @@
     async function loadPreview() {
       const container = document.getElementById('docx-container');
       try {
-        const res = await fetch('/api/reports/' + reportId + '/preview');
+        const _u = JSON.parse(sessionStorage.getItem('user') || 'null');
+        const res = await fetch('/api/reports/' + reportId + '/preview', {
+          headers: _u?.token ? { 'Authorization': 'Bearer ' + _u.token } : {},
+        });
         if (!res.ok) throw new Error('서버 응답 오류: ' + res.status);
         const blob = await res.blob();
 
@@ -199,7 +202,10 @@
       btn.innerHTML = '<span class="spinner"></span> 다운로드 중...';
 
       try {
-        const res = await fetch('/api/reports/' + reportId + '/download');
+        const _u = JSON.parse(sessionStorage.getItem('user') || 'null');
+        const res = await fetch('/api/reports/' + reportId + '/download', {
+          headers: _u?.token ? { 'Authorization': 'Bearer ' + _u.token } : {},
+        });
         if (!res.ok) throw new Error('download failed');
         const blob = await res.blob();
         const url  = URL.createObjectURL(blob);

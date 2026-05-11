@@ -3,18 +3,12 @@ import logging
 from pathlib import Path
 from PIL import Image
 
+from backend.core.defects import MODEL_NAME_TO_CODE
+
 logger = logging.getLogger(__name__)
 
 MODEL_DIR  = Path(__file__).parent.parent.parent / "models"
 MODEL_PATH = MODEL_DIR / "defect_classifier.pt"   # YOLOv8-cls 학습 모델
-
-# YOLOv8 학습 시 사용한 폴더명 → 시스템 불량 코드 매핑
-CLASS_NAME_TO_CODE = {
-    "outer_damage": "OUTER_DAMAGE",
-    "sealing":      "SEALING",
-    "hemming":      "HEMMING",
-    "hole_deform":  "HOLE_DEFORM",
-}
 
 
 def load_model():
@@ -49,5 +43,5 @@ def predict(model, image_data: bytes) -> tuple[str, float]:
     confidence = float(probs.top1conf)
     class_name = results[0].names[top1_idx]          # ex) "hemming"
 
-    defect_code = CLASS_NAME_TO_CODE.get(class_name, "OUTER_DAMAGE")
+    defect_code = MODEL_NAME_TO_CODE.get(class_name, "OUTER_DAMAGE")
     return defect_code, confidence

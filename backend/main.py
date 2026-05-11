@@ -1,13 +1,25 @@
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
+import httpx
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import claim, ai
-from backend.models.database import init_db
+from backend.routers import claim, ai, auth
+from backend.models.database import init_db, get_conn
+from backend.ai.ollama import OLLAMA_URL, OLLAMA_MODEL
 
-logging.basicConfig(level=logging.INFO)
+_LOG_DIR = Path(__file__).parent.parent / "logs"
+_LOG_DIR.mkdir(exist_ok=True)
+_log_fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+_file_handler = RotatingFileHandler(
+    _LOG_DIR / "app.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
+)
+_file_handler.setFormatter(_log_fmt)
+_console_handler = logging.StreamHandler()
+_console_handler.setFormatter(_log_fmt)
+logging.basicConfig(level=logging.INFO, handlers=[_file_handler, _console_handler])
 
 app = FastAPI(title="납품 불량 클레임 대응 자동화 시스템", version="1.0.0")
 
@@ -18,6 +30,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(claim.router)
 app.include_router(ai.router)
 
@@ -32,6 +45,48 @@ app.mount("/fonts",   StaticFiles(directory=str(_BASE / "frontend" / "fonts")), 
 @app.on_event("startup")
 async def startup():
     init_db()
+
+
+MODEL_PATH = _BASE / "models" / "defect_classifier.pt"
+
+
+@app.get("/health")
+async def health():
+    checks = {}
+
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                cur.fetchone()
+        checks["db"] = {"ok": True}
+    except Exception as e:
+        checks["db"] = {"ok": False, "error": str(e)}
+
+    try:
+        async with httpx.AsyncClient(timeout=2) as client:
+            res = await client.get(OLLAMA_URL.replace("/api/generate", "/api/tags"))
+            res.raise_for_status()
+            tags = res.json().get("models", [])
+            names = [t.get("name", "") for t in tags]
+            checks["ollama"] = {
+                "ok": True,
+                "model_loaded": OLLAMA_MODEL in names,
+                "model": OLLAMA_MODEL,
+            }
+    except Exception as e:
+        checks["ollama"] = {"ok": False, "error": str(e)}
+
+    checks["model"] = {
+        "ok": MODEL_PATH.exists(),
+        "path": str(MODEL_PATH),
+    }
+
+    overall = all(c.get("ok") for c in checks.values())
+    return JSONResponse(
+        status_code=200 if overall else 503,
+        content={"status": "ok" if overall else "degraded", "checks": checks},
+    )
 
 
 @app.get("/")
@@ -61,6 +116,10 @@ def claim_step3_page():
 @app.get("/cases")
 def cases_page():
     return FileResponse(str(_BASE / "frontend" / "cases.html"))
+
+@app.get("/admin")
+def admin_page():
+    return FileResponse(str(_BASE / "frontend" / "admin.html"))
 
 @app.get("/logo.png")
 def logo():

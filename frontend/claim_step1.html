@@ -259,6 +259,7 @@
   <script src="js/main.js"></script>
   <script>
     const DEFECT_LABELS = { 'OUTER_DAMAGE':'외관 손상', 'SEALING':'실링 불량', 'HEMMING':'헤밍 불량', 'HOLE_DEFORM':'홀 변형' };
+    let _aiConfidence = null;
 
     const user = JSON.parse(sessionStorage.getItem('user'));
     if (!user) { location.href = '/'; }
@@ -382,6 +383,7 @@
       const fd = new FormData(); fd.append('image', file);
       const data = await apiFetch('/api/classify', { method:'POST', body:fd });
       if (data) {
+        _aiConfidence = data.confidence;
         document.getElementById('aiResult').textContent = data.label;
         document.getElementById('aiConf').textContent = '신뢰도 ' + data.confidence_pct + (data.is_dummy ? ' (시연용)' : '');
         setDefectType(data.defect_type);
@@ -410,8 +412,11 @@
       const imageFile = document.getElementById('imageInput').files[0];
       if (imageFile) fd.append('image', imageFile);
       const aiLabel = document.getElementById('aiResult').textContent;
-      if (aiLabel && !['분석 중...','분류 실패 — 직접 선택하세요'].includes(aiLabel) && defectType)
+      if (aiLabel && !['분석 중...','분류 실패 — 직접 선택하세요'].includes(aiLabel) && defectType) {
         fd.append('ai_defect_type', defectType);
+        if (_aiConfidence !== null) fd.append('ai_confidence', _aiConfidence);
+        fd.append('llm_model', 'YOLO:defect_classifier');
+      }
       return fd;
     }
 

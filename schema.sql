@@ -7,6 +7,7 @@
 --    2. document_sequences    문서번호 채번 관리
 --    3. defect_reports        불량 보고서 (핵심)
 --    4. defect_report_images  보고서 첨부 이미지
+--    5. users                 로그인/권한 계정
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS claims_db
@@ -134,3 +135,25 @@ CREATE TABLE IF NOT EXISTS defect_report_images (
     INDEX idx_images_report (report_id)
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='보고서 첨부 이미지';
+
+
+-- ------------------------------------------------------------
+--  5. users
+--     로그인 계정 (JWT 인증 + role 기반 권한)
+--     role: 'user' (일반) / 'admin' (관리자)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS users (
+    user_id    INT          PRIMARY KEY AUTO_INCREMENT       COMMENT '계정 고유 ID',
+    username   VARCHAR(50)  UNIQUE NOT NULL                  COMMENT '로그인 아이디',
+    password   VARCHAR(255) NOT NULL                         COMMENT 'bcrypt 해시',
+    name       VARCHAR(100)                                  COMMENT '표시 이름',
+    role       VARCHAR(20)  NOT NULL DEFAULT 'user'          COMMENT '권한 (user/admin)',
+    is_active  TINYINT      NOT NULL DEFAULT 1               COMMENT '활성화 여부',
+    created_at DATETIME     DEFAULT NOW()                    COMMENT '생성 시각'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='로그인 계정';
+
+-- 기본 계정 (모두 비밀번호: 1234, bcrypt 해시 — 시연용)
+INSERT IGNORE INTO users (username, password, name, role) VALUES
+    ('admin', '$2b$12$NSpETVsQ7QHLfaTbw51mdumbWwP8Ifep9wBZhNHpDwMsvv4EJz66G', '관리자', 'admin'),
+    ('qa01',  '$2b$12$NSpETVsQ7QHLfaTbw51mdumbWwP8Ifep9wBZhNHpDwMsvv4EJz66G', '김철수',  'user'),
+    ('qa02',  '$2b$12$NSpETVsQ7QHLfaTbw51mdumbWwP8Ifep9wBZhNHpDwMsvv4EJz66G', '이영수',  'user');

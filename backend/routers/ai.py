@@ -5,22 +5,18 @@ import logging
 import random
 
 import httpx
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pathlib import Path
 
 from backend.ai.ollama import call_ollama
-from backend.models.database import get_defect_types
+from backend.core.defects import DEFECT_CODES, label_of
+from backend.core.uploads import read_with_limit, MAX_IMAGE_MB, MAX_DOC_MB
+from backend.models.database import get_defect_types, search_similar
+from backend.routers.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["ai"])
-
-DEFECT_LABELS = {
-    "OUTER_DAMAGE": "외관 손상",
-    "SEALING":      "실링 불량",
-    "HEMMING":      "헤밍 불량",
-    "HOLE_DEFORM":  "홀 변형",
-}
 
 # 서버 시작 시 모델 1회 로드
 _model = None
@@ -40,23 +36,26 @@ def _get_model():
 # ── AI 이미지 분류 ─────────────────────────────────────────────────────────────
 
 @router.post("/classify")
-async def classify_image(image: UploadFile = File(...)):
-    image_data = await image.read()
+async def classify_image(image: UploadFile = File(...), _: dict = Depends(get_current_user)):
+    image_data = await read_with_limit(image, MAX_IMAGE_MB)
     model = _get_model()
 
     if model:
         from backend.ai.classifier import predict
         defect_type, confidence = predict(model, image_data)
     else:
-        defect_type = random.choice(list(DEFECT_LABELS.keys()))
+        defect_type = random.choice(DEFECT_CODES)
         confidence  = round(random.uniform(0.55, 0.92), 3)
 
-    from backend.models.database import search_similar
-    similar = search_similar(defect_type=defect_type, limit=3)
+    try:
+        similar = search_similar(defect_type=defect_type, limit=3)
+    except Exception as e:
+        logger.warning(f"유사사례 검색 실패 (분류 결과는 정상): {e}")
+        similar = []
 
     return {
         "defect_type":    defect_type,
-        "label":          DEFECT_LABELS.get(defect_type, defect_type),
+        "label":          label_of(defect_type),
         "confidence":     confidence,
         "confidence_pct": f"{confidence * 100:.1f}%",
         "is_dummy":       model is None,
@@ -64,18 +63,95 @@ async def classify_image(image: UploadFile = File(...)):
     }
 
 
+# ── AI 보고서 자동 생성 (YOLO + 클레임 텍스트 + 유사 사례 → LLM) ──────────────
+
+@router.post("/generate-report")
+async def generate_report(
+    defect_type:    str  = Form(...),
+    confidence:     float = Form(0.0),
+    claim_text:     str  = Form(""),
+    customer_name:  str  = Form(""),
+    product_name:   str  = Form(""),
+    defect_location: str = Form(""),
+    _: dict = Depends(get_current_user),
+):
+    defect_label = label_of(defect_type)
+
+    try:
+        similar_cases = search_similar(
+            defect_type=defect_type,
+            customer_name=customer_name or None,
+            product_name=product_name or None,
+            defect_location=defect_location or None,
+            claim_text=claim_text or None,
+            limit=3,
+            min_score=30,
+        )
+    except Exception as e:
+        logger.warning(f"유사사례 검색 실패 (보고서 생성은 계속): {e}")
+        similar_cases = []
+
+    similar_text = ""
+    for i, case in enumerate(similar_cases, 1):
+        similar_text += f"""
+[유사 사례 {i}] 고객사: {case.get('customer_name','')} / 불량유형: {label_of(case.get('defect_type',''))}
+  - 원인 분석: {case.get('root_cause_analysis') or '없음'}
+  - 시정 조치: {case.get('corrective_action') or '없음'}
+  - 재발 방지: {case.get('preventive_action') or '없음'}
+""".strip() + "\n"
+
+    if not similar_text:
+        similar_text = "유사 사례 없음"
+
+    prompt = f"""당신은 자동차 부품 품질보증 전문가입니다.
+아래 정보를 바탕으로 부적합 보고서의 세 항목을 작성하라.
+반드시 JSON만 출력하고 설명은 쓰지 마라.
+
+[불량 정보]
+- 불량 유형: {defect_label} (AI 신뢰도: {confidence*100:.1f}%)
+- 고객사: {customer_name or '미입력'}
+- 제품명: {product_name or '미입력'}
+- 불량 위치: {defect_location or '미입력'}
+- 클레임 내용: {claim_text[:1000] if claim_text else '미입력'}
+
+[유사 사례]
+{similar_text}
+
+출력 형식 (JSON):
+{{"root_cause_analysis":"원인 분석 내용","corrective_action":"시정 조치 내용","preventive_action":"재발 방지 내용"}}
+
+작성 기준:
+- 유사 사례를 참고하되 현재 불량 정보에 맞게 구체적으로 작성할 것
+- 각 항목은 2~4문장으로 작성할 것
+- 한국어로 작성할 것
+출력:"""
+
+    try:
+        response = await call_ollama(prompt)
+        match = re.search(r'\{.*\}', response, re.DOTALL)
+        if not match:
+            raise HTTPException(status_code=500, detail="LLM 응답 파싱 실패")
+        result = json.loads(match.group())
+        result["similar_cases"] = similar_cases
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"보고서 생성 실패: {e}")
+
+
 # ── 불량 유형 목록 ─────────────────────────────────────────────────────────────
 
 @router.get("/defect-types")
-def defect_types():
+def defect_types(_: dict = Depends(get_current_user)):
     return get_defect_types()
 
 
 # ── 파일 텍스트 추출 ───────────────────────────────────────────────────────────
 
 @router.post("/parse-file")
-async def parse_file(file: UploadFile = File(...)):
-    data = await file.read()
+async def parse_file(file: UploadFile = File(...), _: dict = Depends(get_current_user)):
+    data = await read_with_limit(file, MAX_DOC_MB)
     ext  = Path(file.filename).suffix.lower()
     text = ""
 
@@ -115,7 +191,7 @@ async def parse_file(file: UploadFile = File(...)):
 # ── 텍스트 → 필드 파싱 (Ollama) ───────────────────────────────────────────────
 
 @router.post("/parse-claim")
-async def parse_claim(text: str = Form(...)):
+async def parse_claim(text: str = Form(...), _: dict = Depends(get_current_user)):
     prompt = f"""아래 클레임 텍스트에서 정보를 추출해서 JSON으로 출력하라. 반드시 JSON만 출력하고 설명은 쓰지 마라.
 
 출력 형식:

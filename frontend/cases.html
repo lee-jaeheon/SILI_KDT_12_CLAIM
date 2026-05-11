@@ -7,9 +7,6 @@
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid #e0e0e0; }
-    .tab { padding: 10px 22px; font-size: 15px; cursor: pointer; color: #888; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; font-family: inherit; min-width: 120px; text-align: center; }
-    .tab.active { color: #0d6b6c; font-weight: 500; border-bottom-color: #0d6b6c; }
     .page-wrap { max-width: 1100px; margin: 0 auto; padding: 32px 28px 48px; flex: 1; }
     .page-header { margin-bottom: 28px; }
     .back-btn { font-size: 14px; color: #888; cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 8px; display: block; }
@@ -52,24 +49,36 @@
     .cases-empty { grid-column: 1/-1; text-align: center; padding: 60px; color: #bbb; font-size: 15px; }
     .cases-loading { grid-column: 1/-1; text-align: center; padding: 60px; color: #aaa; font-size: 15px; }
 
+    .modal { background: #f0f2f5; border-radius: 16px; width: 100%; max-width: 780px; max-height: 90vh; overflow-y: auto; padding: 24px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.15); }
+    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .modal-title { font-size: 16px; font-weight: 500; color: #2c2c2c; }
+    .modal-sub { font-size: 12px; color: #888; margin-top: 3px; }
+    .modal-close { background: none; border: none; font-size: 24px; color: #aaa; cursor: pointer; padding: 0; line-height: 1; }
+    .modal-close:hover { color: #2c2c2c; }
+
+    /* NCR 보고서 양식 */
+    .ncr-wrap { background: #fff; border: 1px solid #c8c8c8; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 100; align-items: center; justify-content: center; }
     .modal-overlay.open { display: flex; }
-    .modal { background: #fff; border-radius: 16px; width: 100%; max-width: 720px; max-height: 90vh; overflow-y: auto; padding: 28px 32px; box-shadow: 0 20px 60px rgba(0,0,0,.15); }
-    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
-    .modal-title { font-size: 18px; font-weight: 500; color: #2c2c2c; }
-    .modal-sub { font-size: 13px; color: #888; margin-top: 4px; }
-    .modal-close { background: none; border: none; font-size: 26px; color: #aaa; cursor: pointer; padding: 0; line-height: 1; }
-    .modal-close:hover { color: #2c2c2c; }
-    .modal-type-badge { display: inline-block; padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; margin-bottom: 20px; }
-    .modal-section { margin-bottom: 22px; }
-    .modal-section-title { font-size: 14px; font-weight: 500; color: #2c2c2c; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0; }
-    .modal-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .info-label { font-size: 12px; color: #888; margin-bottom: 3px; }
-    .info-value { font-size: 14px; color: #2c2c2c; font-weight: 500; }
-    .modal-text-block { background: #f8f8f8; border-radius: 10px; padding: 14px 16px; font-size: 14px; color: #444; line-height: 1.7; margin-top: 8px; }
-    .modal-text-label { font-size: 13px; font-weight: 500; color: #555; margin-bottom: 6px; margin-top: 14px; }
-    .img-preview { width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px; margin-top: 10px; }
-    .img-placeholder { width: 100%; height: 80px; background: #f5f5f5; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 13px; margin-top: 10px; }
+    .ncr-wrap table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .ncr-wrap td, .ncr-wrap th { border: 1px solid #c8c8c8; padding: 7px 10px; vertical-align: middle; }
+    .ncr-header { display: flex; border-bottom: 1px solid #c8c8c8; }
+    .ncr-logo-cell { width: 80px; padding: 12px; border-right: 1px solid #c8c8c8; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ncr-logo-cell img { width: 56px; height: 56px; object-fit: contain; }
+    .ncr-title-cell { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: #1a1d23; border-right: 1px solid #c8c8c8; }
+    .ncr-docno-cell { width: 130px; padding: 10px; display: flex; flex-direction: column; justify-content: center; }
+    .ncr-docno-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+    .ncr-docno-val { font-size: 13px; font-weight: 600; color: #0d6b6c; }
+    .ncr-th { background: #f5f5f5; font-weight: 600; color: #333; text-align: center; width: 90px; }
+    .ncr-defect-row td { padding: 10px; }
+    .ncr-checkbox { display: inline-flex; align-items: center; gap: 5px; margin-right: 16px; font-size: 13px; }
+    .ncr-photo-cell { height: 180px; text-align: center; vertical-align: middle; background: #fafafa; }
+    .ncr-photo-cell img { max-height: 170px; max-width: 100%; object-fit: contain; border-radius: 6px; }
+    .ncr-photo-cell .no-photo { color: #ccc; font-size: 13px; }
+    .ncr-text-cell { background: #fff; line-height: 1.6; color: #333; min-height: 60px; }
+
+    /* 통계 페이지는 위쪽 여백 더 넉넉하게 (Lee 의도값) */
+    .main { padding-top: 170px; }
   </style>
 </head>
 <body>
@@ -95,9 +104,11 @@
   <div class="page-wrap">
 
     <div class="page-header">
-      <button class="back-btn" onclick="location.href='/hub'">← 홈으로</button>
-      <div class="page-title">품질 사례 DB</div>
-      <div class="page-sub">처리 완료된 클레임 사례를 검색하고 참고할 수 있습니다</div>
+      <div>
+        <button class="back-btn" onclick="location.href='/hub'">← 홈으로</button>
+        <div class="page-title">통계 분석 · 품질 사례 DB</div>
+        <div class="page-sub">처리 완료된 클레임 사례를 검색하고 참고할 수 있습니다</div>
+      </div>
     </div>
 
     <div class="tabs">
@@ -105,38 +116,7 @@
       <button class="tab" onclick="switchCasesTab('cases', this)">사례 목록</button>
     </div>
 
-    <!-- 통계 분석 탭 -->
-    <div id="tab-stats">
-      <div style="background:#fff;border-radius:16px;border:1px solid #e0e0e0;padding:28px 32px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;">
-          <div style="font-size:17px;font-weight:500;color:#2c2c2c;">클레임 통계 분석</div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <div style="display:flex;gap:6px;">
-              <button class="defect-filter-tab active" onclick="switchPeriod('monthly', this)">월별</button>
-              <button class="defect-filter-tab" onclick="switchPeriod('quarterly', this)">분기별</button>
-              <button class="defect-filter-tab" onclick="switchPeriod('yearly', this)">연별</button>
-            </div>
-            <select class="filter-select" id="yearSelect" onchange="rerenderStats()"></select>
-          </div>
-        </div>
-        <div style="margin-bottom:28px;">
-          <div style="font-size:14px;font-weight:500;color:#888;margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px;">주요 불량 유형 Top 3</div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;" id="topDefects"></div>
-        </div>
-        <div style="display:grid;grid-template-columns:3fr 2fr;gap:20px;align-items:start;">
-          <div style="background:#f8f9fa;border-radius:12px;padding:20px 24px;">
-            <div style="font-size:14px;font-weight:500;color:#2c2c2c;margin-bottom:16px;" id="periodChartTitle">월별 클레임 접수 현황</div>
-            <canvas id="periodChart" height="100"></canvas>
-          </div>
-          <div style="background:#f8f9fa;border-radius:12px;padding:20px 24px;display:flex;flex-direction:column;align-items:center;">
-            <div style="font-size:14px;font-weight:500;color:#2c2c2c;margin-bottom:16px;width:100%;">불량 유형별 비율</div>
-            <canvas id="defectChart" style="max-width:200px;"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 사례 목록 탭 -->
+    <!-- 사례 목록 탭 (기본 표시) -->
     <div id="tab-cases" style="display:none;">
       <div class="search-section">
         <div class="search-row">
@@ -178,6 +158,54 @@
       </div>
     </div>
 
+    <!-- 통계 분석 탭 (숨김) -->
+    <div id="tab-stats">
+      <div style="background:#fff;border-radius:16px;border:1px solid #e0e0e0;padding:28px 32px;margin-bottom:20px;">
+
+        <!-- 컨트롤 헤더 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+          <div style="font-size:17px;font-weight:500;color:#2c2c2c;">클레임 통계 분석</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="display:flex;gap:6px;">
+              <button class="defect-filter-tab active" onclick="switchPeriod('monthly', this)">월별</button>
+              <button class="defect-filter-tab" onclick="switchPeriod('quarterly', this)">분기별</button>
+              <button class="defect-filter-tab" onclick="switchPeriod('yearly', this)">연별</button>
+            </div>
+            <select class="filter-select" id="yearSelect" onchange="rerenderStats()"></select>
+          </div>
+        </div>
+
+        <!-- 요약 수치 -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;" id="statSummaryCards"></div>
+
+        <!-- Top 3 -->
+        <div style="margin-bottom:24px;">
+          <div style="font-size:13px;font-weight:500;color:#888;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;">주요 불량 유형 Top 3</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;" id="topDefects"></div>
+        </div>
+
+        <!-- 차트 1행: 기간별 추이 + 유형별 비율 -->
+        <div style="display:grid;grid-template-columns:3fr 2fr;gap:20px;margin-bottom:20px;align-items:stretch;">
+          <div style="background:#f8f9fa;border-radius:12px;padding:20px 24px;">
+            <div style="font-size:14px;font-weight:500;color:#2c2c2c;margin-bottom:16px;" id="periodChartTitle">월별 클레임 접수 현황</div>
+            <canvas id="periodChart" height="100"></canvas>
+            <div id="insightBox" style="margin-top:16px;background:#fff;border-radius:10px;border:1px solid #e0e0e0;padding:14px 18px;font-size:13px;color:#555;line-height:1.8;"></div>
+          </div>
+          <div style="background:#f8f9fa;border-radius:12px;padding:20px 24px;display:flex;flex-direction:column;align-items:center;height:100%;box-sizing:border-box;">
+            <div style="font-size:14px;font-weight:500;color:#2c2c2c;margin-bottom:16px;width:100%;">불량 유형별 비율</div>
+            <canvas id="defectChart" style="max-width:220px;max-height:250px;margin-top:30px;"></canvas>
+          </div>
+        </div>
+
+        <!-- 차트 2행: 납품처별 현황 -->
+        <div style="background:#f8f9fa;border-radius:12px;padding:20px 24px;">
+          <div style="font-size:14px;font-weight:500;color:#2c2c2c;margin-bottom:16px;">납품처별 클레임 현황 Top 8</div>
+          <canvas id="supplierChart" height="60"></canvas>
+        </div>
+
+      </div>
+    </div>
+
   </div><!-- /page-wrap -->
 
   <!-- 상세 모달 -->
@@ -188,7 +216,7 @@
           <div class="modal-title" id="modalTitle"></div>
           <div class="modal-sub" id="modalSub"></div>
         </div>
-        <button class="modal-close" onclick="closeModalDirect()">×</button>
+        <button class="modal-close" onclick="closeModalDirect()">x</button>
       </div>
       <div id="modalBody"></div>
     </div>
@@ -211,7 +239,7 @@
     };
 
     const user = JSON.parse(sessionStorage.getItem('user'));
-    if (!user) { location.href = '/'; }
+    if (!user?.token) { location.href = '/'; }
     else {
       document.getElementById('userAvatar').textContent = user.name.charAt(0);
       document.getElementById('userName').textContent = user.name + ' 담당자';
@@ -247,7 +275,7 @@
       renderStats('monthly');
     }
 
-    let periodChartInst = null, defectChartInst = null, currentPeriod = 'monthly';
+    let periodChartInst = null, defectChartInst = null, supplierChartInst = null, currentPeriod = 'monthly';
 
     function switchCasesTab(name, btn) {
       document.getElementById('tab-cases').style.display = name === 'cases' ? 'block' : 'none';
@@ -283,19 +311,43 @@
     }
 
     function renderStats(period) {
+      // ── 요약 카드 ──
+      const supplierSet = new Set(allCases.map(c => c.supplier).filter(Boolean));
       const typeCounts = {};
       allCases.forEach(c => {
         const label = DEFECT_LABELS[c.defect_type] || c.defect_type;
-        typeCounts[label] = (typeCounts[label] || 0) + 1;
+        if (label) typeCounts[label] = (typeCounts[label] || 0) + 1;
       });
+      const topType = Object.entries(typeCounts).sort((a,b)=>b[1]-a[1])[0];
+      document.getElementById('statSummaryCards').innerHTML = `
+        <div style="background:#e8f5f5;border-radius:12px;border:1px solid #0d6b6c;padding:18px 20px;">
+          <div style="font-size:12px;color:#0a4e4f;margin-bottom:6px;">완료 사례 수</div>
+          <div style="font-size:26px;font-weight:500;color:#0d6b6c;">${allCases.length}건</div>
+        </div>
+        <div style="background:#fff;border-radius:12px;border:1px solid #e0e0e0;padding:18px 20px;">
+          <div style="font-size:12px;color:#888;margin-bottom:6px;">납품처 수</div>
+          <div style="font-size:26px;font-weight:500;color:#2c2c2c;">${supplierSet.size}곳</div>
+        </div>
+        <div style="background:#fff;border-radius:12px;border:1px solid #e0e0e0;padding:18px 20px;">
+          <div style="font-size:12px;color:#888;margin-bottom:6px;">불량 유형 수</div>
+          <div style="font-size:26px;font-weight:500;color:#2c2c2c;">${Object.keys(typeCounts).length}종</div>
+        </div>
+        <div style="background:#fff;border-radius:12px;border:1px solid #e0e0e0;padding:18px 20px;">
+          <div style="font-size:12px;color:#888;margin-bottom:6px;">최다 불량 유형</div>
+          <div style="font-size:16px;font-weight:500;color:#2c2c2c;margin-top:4px;">${topType ? topType[0] : '-'}</div>
+          <div style="font-size:12px;color:#888;margin-top:4px;">${topType ? topType[1]+'건' : ''}</div>
+        </div>`;
+
+      // ── Top 3 ──
       const sorted = Object.entries(typeCounts).sort((a,b) => b[1]-a[1]);
       const rankBg = ['#0d6b6c','#4a9fa0','#8cbcbc'];
       document.getElementById('topDefects').innerHTML = sorted.slice(0,3).map((t,i) => `
         <div style="background:#fff;border-radius:12px;border:1px solid #e0e0e0;padding:16px;display:flex;align-items:center;gap:12px;">
           <div style="width:30px;height:30px;border-radius:50%;background:${rankBg[i]};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;">${i+1}</div>
           <div><div style="font-size:14px;font-weight:500;color:#2c2c2c;">${t[0]}</div><div style="font-size:13px;color:#888;">${t[1]}건</div></div>
-        </div>`).join('');
+        </div>`).join('') || '<div style="color:#bbb;font-size:13px;padding:8px;">데이터 없음</div>';
 
+      // ── 기간별 차트 ──
       const selectedYear = document.getElementById('yearSelect').value;
       let pdLabels, pdData, pdTitle;
       if (period === 'monthly') {
@@ -321,6 +373,45 @@
       }
       document.getElementById('periodChartTitle').textContent = pdTitle;
 
+      // ── 인사이트 ──
+      const topSupplier = Object.entries(
+        allCases.reduce((acc, c) => { if(c.supplier) acc[c.supplier]=(acc[c.supplier]||0)+1; return acc; }, {})
+      ).sort((a,b)=>b[1]-a[1])[0];
+
+      let insightHTML = '';
+      if (period === 'monthly') {
+        const yearCases = allCases.filter(c => !selectedYear || c.date.slice(0,4) === selectedYear);
+        const total = yearCases.length;
+        const avg = total > 0 ? (total / 12).toFixed(1) : 0;
+        const monthlyCounts = {};
+        yearCases.forEach(c => { const m=c.date.slice(5,7); monthlyCounts[m]=(monthlyCounts[m]||0)+1; });
+        const peakEntry = Object.entries(monthlyCounts).sort((a,b)=>b[1]-a[1])[0];
+        insightHTML =
+          `📅 ${selectedYear||'전체'}년 총 클레임 <strong>${total}건</strong> · 월 평균 <strong>${avg}건</strong><br>` +
+          `⚠ 주요 불량: <strong>${topType ? topType[0] : '-'}</strong> (${topType ? topType[1]+'건' : '-'})<br>` +
+          `📈 최다 접수월: <strong>${peakEntry ? parseInt(peakEntry[0])+'월' : '-'}</strong> (${peakEntry ? peakEntry[1]+'건' : '-'})`;
+      } else if (period === 'quarterly') {
+        const yearCases = allCases.filter(c => !selectedYear || c.date.slice(0,4) === selectedYear);
+        const total = yearCases.length;
+        const qCounts = {'Q1':0,'Q2':0,'Q3':0,'Q4':0};
+        yearCases.forEach(c => { const q='Q'+Math.ceil(parseInt(c.date.slice(5,7))/3); qCounts[q]++; });
+        const peakQ = Object.entries(qCounts).sort((a,b)=>b[1]-a[1])[0];
+        insightHTML =
+          `📅 ${selectedYear||'전체'}년 총 클레임 <strong>${total}건</strong><br>` +
+          `⚠ 주요 불량: <strong>${topType ? topType[0] : '-'}</strong> (${topType ? topType[1]+'건' : '-'})<br>` +
+          `📈 최다 접수 분기: <strong>${peakQ ? peakQ[0] : '-'}</strong> (${peakQ ? peakQ[1]+'건' : '-'})`;
+      } else {
+        const yearCounts = {};
+        allCases.forEach(c => { const y=c.date.slice(0,4); if(y) yearCounts[y]=(yearCounts[y]||0)+1; });
+        const peakYear = Object.entries(yearCounts).sort((a,b)=>b[1]-a[1])[0];
+        insightHTML =
+          `📅 전체 기간 누적 클레임 <strong>${allCases.length}건</strong><br>` +
+          `⚠ 주요 불량: <strong>${topType ? topType[0] : '-'}</strong> (${topType ? topType[1]+'건' : '-'})<br>` +
+          `📈 클레임 최다 연도: <strong>${peakYear ? peakYear[0]+'년' : '-'}</strong> (${peakYear ? peakYear[1]+'건' : '-'})`;
+      }
+      document.getElementById('insightBox').innerHTML = insightHTML;
+
+
       if (periodChartInst) periodChartInst.destroy();
       periodChartInst = new Chart(document.getElementById('periodChart'), {
         type: 'bar',
@@ -335,7 +426,30 @@
           labels: sorted.map(t=>t[0]),
           datasets: [{ data: sorted.map(t=>t[1]), backgroundColor:['#0d6b6c','#4a9fa0','#f59e42','#6fa8f5'], borderWidth:2, borderColor:'#fff' }]
         },
-        options: { responsive:true, cutout:'60%', plugins:{ legend:{ position:'bottom', labels:{ padding:16, font:{ size:13 } } } } }
+        options: { responsive:true, cutout:'60%', plugins:{ legend:{ position:'bottom',  align:'start', labels:{ padding:16, font:{ size:13 } } } } }
+      });
+
+      // ── 납품처별 차트 ──
+      const supplierCounts = {};
+      allCases.forEach(c => {
+        if (c.supplier) supplierCounts[c.supplier] = (supplierCounts[c.supplier] || 0) + 1;
+      });
+      const supSorted = Object.entries(supplierCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+      if (supplierChartInst) supplierChartInst.destroy();
+      supplierChartInst = new Chart(document.getElementById('supplierChart'), {
+        type: 'bar',
+        data: {
+          labels: supSorted.map(s=>s[0]),
+          datasets: [{ label:'클레임 수', data: supSorted.map(s=>s[1]),
+            backgroundColor: supSorted.map((_,i) => i===0?'#0d6b6c':i===1?'#4a9fa0':'#8cbcbc'),
+            borderRadius: 6 }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: { legend: { display:false } },
+          scales: { x: { beginAtZero:true, ticks:{ stepSize:1 } } }
+        }
       });
     }
 
@@ -383,31 +497,77 @@
     function openModal(id) {
       const c = allCases.find(x => x.id === id);
       if (!c) return;
-      document.getElementById('modalTitle').textContent = c.supplier;
-      document.getElementById('modalSub').textContent = `${c.date} · 담당자: ${c.handler}`;
-      const typeClass = DEFECT_TYPE_CLASS[c.defect_type] || 'type-default';
-      const typeLabel = DEFECT_LABELS[c.defect_type] || c.defect_type;
+      document.getElementById('modalTitle').textContent = `부적합 보고서 (NCR)`;
+      document.getElementById('modalSub').textContent = `${c.num} · ${c.date} · 담당자: ${c.handler}`;
+
+      const defects = ['OUTER_DAMAGE','SEALING','HEMMING','HOLE_DEFORM'];
+      const defectKo = {'OUTER_DAMAGE':'외관손상','SEALING':'실링 불량','HEMMING':'헤밍 불량','HOLE_DEFORM':'홀 변형'};
+      const checkboxes = defects.map(d =>
+        `<span class="ncr-checkbox">${d === c.defect_type ? '☑' : '□'} ${defectKo[d]}</span>`
+      ).join('');
+
       document.getElementById('modalBody').innerHTML = `
-        <div class="modal-type-badge ${typeClass}">${typeLabel}</div>
-        <div class="modal-section">
-          <div class="modal-section-title">기본 정보</div>
-          <div class="modal-info-grid">
-            <div><div class="info-label">납품처</div><div class="info-value">${c.supplier}</div></div>
-            <div><div class="info-label">담당자</div><div class="info-value">${c.handler}</div></div>
-            ${c.product_name ? `<div><div class="info-label">품명</div><div class="info-value">${c.product_name}</div></div>` : ''}
-            ${c.defect_location ? `<div><div class="info-label">불량 위치</div><div class="info-value">${c.defect_location}</div></div>` : ''}
-            ${c.delivery_date ? `<div><div class="info-label">납품일</div><div class="info-value">${c.delivery_date}</div></div>` : ''}
-            ${c.delivery_quantity ? `<div><div class="info-label">납품수량</div><div class="info-value">${c.delivery_quantity} EA</div></div>` : ''}
-            ${c.defect_quantity ? `<div><div class="info-label">불량수량</div><div class="info-value">${c.defect_quantity} EA</div></div>` : ''}
+        <div class="ncr-wrap">
+          <div class="ncr-header">
+            <div class="ncr-logo-cell"><img src="logo.png" alt="로고" /></div>
+            <div class="ncr-title-cell">부적합 보고서(NCR)</div>
+            <div class="ncr-docno-cell">
+              <div class="ncr-docno-label">문서번호</div>
+              <div class="ncr-docno-val">${c.num || '-'}</div>
+            </div>
           </div>
-          ${c.image_path ? `<img class="img-preview" src="${c.image_path}" alt="불량 사진" />` : `<div class="img-placeholder">불량 사진 없음</div>`}
-        </div>
-        <div class="modal-section">
-          <div class="modal-section-title">원인 및 조치</div>
-          ${c.root_cause ? `<div class="modal-text-label">원인 분석</div><div class="modal-text-block">${c.root_cause}</div>` : ''}
-          ${c.action ? `<div class="modal-text-label">시정 조치</div><div class="modal-text-block">${c.action}</div>` : ''}
-          ${c.prevention ? `<div class="modal-text-label">예방 대책</div><div class="modal-text-block">${c.prevention}</div>` : ''}
-          ${!c.root_cause && !c.action && !c.prevention ? '<div style="color:#bbb;font-size:14px;padding:16px 0;">대응 내용이 없습니다.</div>' : ''}
+          <table>
+            <tr>
+              <td class="ncr-th">발행일</td>
+              <td>${c.date || '-'}</td>
+              <td class="ncr-th">고객사</td>
+              <td>${c.supplier || '-'}</td>
+            </tr>
+            <tr>
+              <td class="ncr-th">납품일</td>
+              <td>${c.delivery_date || '-'}</td>
+              <td class="ncr-th">납품수량</td>
+              <td>${c.delivery_quantity ? c.delivery_quantity + ' EA' : '-'}</td>
+            </tr>
+            <tr>
+              <td class="ncr-th">품명/품번</td>
+              <td colspan="3">${c.product_name || '-'}</td>
+            </tr>
+            <tr>
+              <td class="ncr-th">불량수량</td>
+              <td>${c.defect_quantity ? c.defect_quantity + ' EA' : '-'}</td>
+              <td class="ncr-th">불량위치</td>
+              <td>${c.defect_location || '-'}</td>
+            </tr>
+            <tr class="ncr-defect-row">
+              <td class="ncr-th">불량유형</td>
+              <td colspan="3">${checkboxes}</td>
+            </tr>
+            <tr>
+              <td class="ncr-th">사진첨부</td>
+              <td colspan="3" class="ncr-photo-cell">
+                ${c.image_path
+                  ? `<img src="${c.image_path}" alt="불량 사진" />`
+                  : `<div class="no-photo">첨부된 사진이 없습니다</div>`}
+              </td>
+            </tr>
+            <tr>
+              <td class="ncr-th">원인분석</td>
+              <td colspan="3" class="ncr-text-cell">${c.root_cause || '-'}</td>
+            </tr>
+            <tr>
+              <td class="ncr-th">시정조치</td>
+              <td colspan="3" class="ncr-text-cell">${c.action || '-'}</td>
+            </tr>
+            <tr>
+              <td class="ncr-th">예방대책</td>
+              <td colspan="3" class="ncr-text-cell">${c.prevention || '-'}</td>
+            </tr>
+            <tr>
+              <td class="ncr-th">담당자</td>
+              <td colspan="3">${c.handler || '-'}</td>
+            </tr>
+          </table>
         </div>`;
       document.getElementById('modalOverlay').classList.add('open');
     }

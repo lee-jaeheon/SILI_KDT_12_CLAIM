@@ -21,6 +21,10 @@ BASE_DIR    = Path(__file__).parent.parent.parent
 SAMPLE_SQL_PATH = BASE_DIR / "sampleDBB.sql"
 
 
+class ReportNotFoundError(Exception):
+    """Raised when an image operation references a missing report."""
+
+
 def _index_exists(cur, table_name: str, index_name: str) -> bool:
     cur.execute(
         """
@@ -101,17 +105,13 @@ def _seed_document_sequences(cur):
 
 
 def _seed_defect_types(cur):
+    from backend.core.defects import DEFECT_SEED
     cur.executemany(
         """
         INSERT IGNORE INTO defect_types (code, label, category_id, description)
         VALUES (%s, %s, %s, %s)
         """,
-        [
-            ("OUTER_DAMAGE", "\uc678\uad00 \uc190\uc0c1", 102, "\uc678\uad00 \uae01\ud798, \ucc0d\ud798, \ubcc0\ud615 \ub4f1 \uc721\uc548 \uc2dd\ubcc4 \ubd88\ub7c9"),
-            ("SEALING",      "\uc2e4\ub9c1 \ubd88\ub7c9", 204, "\uc2e4\ub9c1\uc7ac \ubbf8\ub3c4\ud3ec, \ubd80\uc871, \uc704\uce58 \uc774\ud0c8"),
-            ("HEMMING",      "\ud5e4\ubc0d \ubd88\ub7c9", 212, "\ud5e4\ubc0d \uacf5\uc815 \uc811\ud569 \ubd88\ub7c9"),
-            ("HOLE_DEFORM",  "\ud640 \ubcc0\ud615",   213, "\ud640 \uce58\uc218 \uc774\ud0c8, \ubcc0\ud615"),
-        ],
+        DEFECT_SEED,
     )
 
 
@@ -134,6 +134,31 @@ def _extract_insert_rows(sql_text: str, table_name: str) -> list[tuple]:
         return []
     values_text = values_text.replace("NULL", "None")
     return list(ast.literal_eval(f"[{values_text}]"))
+
+
+def _seed_admin_user(cur):
+    """기본 계정 시드 (admin + 시연용 일반 유저 2명, 모두 비밀번호 1234)"""
+    try:
+        from passlib.context import CryptContext
+        hashed = CryptContext(schemes=["bcrypt"], deprecated="auto").hash("1234")
+    except ImportError:
+        import logging
+        logging.getLogger(__name__).warning("passlib 미설치 — 계정 시드 건너뜀")
+        return
+
+    seed_users = [
+        ("admin", hashed, "관리자", "admin"),
+        ("qa01",  hashed, "김철수",  "user"),
+        ("qa02",  hashed, "이영수",  "user"),
+    ]
+    for username, pw, name, role in seed_users:
+        cur.execute("SELECT 1 FROM users WHERE username = %s", (username,))
+        if cur.fetchone():
+            continue
+        cur.execute(
+            "INSERT INTO users (username, password, name, role) VALUES (%s, %s, %s, %s)",
+            (username, pw, name, role),
+        )
 
 
 def _seed_sample_cases(cur):
@@ -295,9 +320,21 @@ def init_db():
                     INDEX idx_images_report (report_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id    INT          PRIMARY KEY AUTO_INCREMENT,
+                    username   VARCHAR(50)  UNIQUE NOT NULL,
+                    password   VARCHAR(255) NOT NULL,
+                    name       VARCHAR(100),
+                    role       VARCHAR(20)  NOT NULL DEFAULT 'user',
+                    is_active  TINYINT      NOT NULL DEFAULT 1,
+                    created_at DATETIME     DEFAULT NOW()
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
             _seed_defect_types(cur)
             _seed_sample_cases(cur)
             _seed_document_sequences(cur)
+            _seed_admin_user(cur)
 
     # DDL(ALTER TABLE)은 트랜잭션 밖 별도 커넥션에서 실행
     with get_conn() as conn:
@@ -507,6 +544,9 @@ def insert_image(
 ) -> int:
     with get_conn() as conn:
         with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM defect_reports WHERE report_id = %s", (report_id,))
+            if not cur.fetchone():
+                raise ReportNotFoundError(f"report_id not found: {report_id}")
             cur.execute(
                 """INSERT INTO defect_report_images
                    (report_id, image_type, image_path, image_description, defect_bbox)

@@ -10,14 +10,16 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 from PIL import Image as PILImage
-from fastapi import APIRouter, Body, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from backend.core.uploads import check_size, MAX_IMAGE_MB
+from backend.routers.auth import get_current_user
 from backend.models.database import (
     insert_report, get_report, list_reports, update_report, delete_report,
     insert_image, get_images, delete_image,
-    search_similar, get_defect_types,
+    search_similar, get_defect_types, ReportNotFoundError,
 )
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -26,14 +28,6 @@ UPLOAD_DIR = Path(__file__).parent.parent.parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
-
-_DEFECT_KR = {
-    "OUTER_DAMAGE": "외관 손상",
-    "SEALING":      "실링 불량",
-    "HEMMING":      "헤밍 불량",
-    "HOLE_DEFORM":  "홀 변형",
-}
-
 
 _TEMPLATE_PATH = Path(__file__).parent.parent / "부적합_처리_보고서_양식.docx"
 
@@ -268,11 +262,20 @@ def _save_image(image: UploadFile) -> str:
     ext = Path(image.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail="지원하지 않는 이미지 형식입니다.")
+    check_size(image, MAX_IMAGE_MB)
     filename  = f"{uuid.uuid4().hex}{ext}"
     save_path = UPLOAD_DIR / filename
     with open(save_path, "wb") as f:
         shutil.copyfileobj(image.file, f)
     return f"/uploads/{filename}"
+
+
+def _delete_saved_image(image_path: Optional[str]):
+    if not image_path:
+        return
+    full_path = Path(__file__).parent.parent.parent / image_path.lstrip("/")
+    if full_path.exists():
+        full_path.unlink()
 
 
 # ── CRUD ───────────────────────────────────────────────────────────────────────
@@ -282,6 +285,7 @@ def get_reports(
     status: Optional[str] = Query(None),
     page:   int           = Query(1, ge=1),
     limit:  int           = Query(20, ge=1, le=500),
+    _: dict = Depends(get_current_user),
 ):
     offset = (page - 1) * limit
     result = list_reports(status=status, limit=limit, offset=offset)
@@ -320,6 +324,7 @@ async def create_report(
     reviewer_name:       str            = Form(""),
     approver_name:       str            = Form(""),
     image: Optional[UploadFile] = File(None),
+    _: dict = Depends(get_current_user),
 ):
     # defect_type 유효성 검증
     if defect_type:
@@ -331,35 +336,45 @@ async def create_report(
     if image and image.filename:
         image_path = _save_image(image)
 
-    report_id = insert_report(
-        customer_name=customer_name,
-        defect_type=defect_type or None,
-        defect_code=defect_code or None,
-        defect_location=defect_location or None,
-        ai_defect_type=ai_defect_type or None,
-        ai_confidence=ai_confidence,
-        product_name=product_name or None,
-        product_no=product_no or None,
-        part_name=part_name or None,
-        process_name=process_name or None,
-        lot_no=lot_no or None,
-        delivery_quantity=delivery_quantity,
-        defect_quantity=defect_quantity,
-        handler=handler or None,
-        author_name=author_name or None,
-        delivery_date=delivery_date or None,
-        issue_date=issue_date or None,
-        claim_text=claim_text or None,
-        extracted_text=extracted_text or None,
-        root_cause_analysis=root_cause_analysis or None,
-        corrective_action=corrective_action or None,
-        preventive_action=preventive_action or None,
-        reviewer_name=reviewer_name or None,
-        approver_name=approver_name or None,
-    )
+    report_id = None
+    try:
+        report_id = insert_report(
+            customer_name=customer_name,
+            defect_type=defect_type or None,
+            defect_code=defect_code or None,
+            defect_location=defect_location or None,
+            ai_defect_type=ai_defect_type or None,
+            ai_confidence=ai_confidence,
+            product_name=product_name or None,
+            product_no=product_no or None,
+            part_name=part_name or None,
+            process_name=process_name or None,
+            lot_no=lot_no or None,
+            delivery_quantity=delivery_quantity,
+            defect_quantity=defect_quantity,
+            handler=handler or None,
+            author_name=author_name or None,
+            delivery_date=delivery_date or None,
+            issue_date=issue_date or None,
+            claim_text=claim_text or None,
+            extracted_text=extracted_text or None,
+            root_cause_analysis=root_cause_analysis or None,
+            corrective_action=corrective_action or None,
+            preventive_action=preventive_action or None,
+            reviewer_name=reviewer_name or None,
+            approver_name=approver_name or None,
+        )
 
-    if image_path:
-        insert_image(report_id, image_path, image_type="불량부위")
+        if image_path:
+            insert_image(report_id, image_path, image_type="불량부위")
+    except Exception:
+        _delete_saved_image(image_path)
+        if report_id is not None:
+            try:
+                delete_report(report_id)
+            except Exception:
+                pass
+        raise
 
     return {"report_id": report_id, "message": "보고서가 생성되었습니다.", "image_path": image_path}
 
@@ -381,6 +396,7 @@ def get_similar(
     preventive_action: Optional[str] = Query(None),
     limit: int = Query(5, ge=1, le=20),
     min_score: int = Query(60, ge=0, le=100),
+    _: dict = Depends(get_current_user),
 ):
     return search_similar(
         defect_type=defect_type,
@@ -402,7 +418,7 @@ def get_similar(
 
 
 @router.get("/{report_id}/preview")
-def preview_report(report_id: int):
+def preview_report(report_id: int, _: dict = Depends(get_current_user)):
     report = get_report(report_id)
     if not report:
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
@@ -415,7 +431,7 @@ def preview_report(report_id: int):
 
 
 @router.get("/{report_id}/download")
-def download_report(report_id: int):
+def download_report(report_id: int, _: dict = Depends(get_current_user)):
     report = get_report(report_id)
     if not report:
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
@@ -430,7 +446,7 @@ def download_report(report_id: int):
 
 
 @router.get("/{report_id}")
-def get_report_detail(report_id: int):
+def get_report_detail(report_id: int, _: dict = Depends(get_current_user)):
     row = get_report(report_id)
     if not row:
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
@@ -462,7 +478,7 @@ class UpdateBody(BaseModel):
 
 
 @router.put("/{report_id}")
-def update_report_api(report_id: int, body: UpdateBody):
+def update_report_api(report_id: int, body: UpdateBody, _: dict = Depends(get_current_user)):
     result = update_report(report_id, body.model_dump(exclude_none=True))
     if result == "missing":
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
@@ -474,7 +490,7 @@ def update_report_api(report_id: int, body: UpdateBody):
 
 
 @router.patch("/{report_id}/status")
-def change_status(report_id: int, status: str = Body(..., embed=True)):
+def change_status(report_id: int, status: str = Body(..., embed=True), _: dict = Depends(get_current_user)):
     VALID_STATUSES = {"draft", "submitted", "approved", "rejected"}
     if status not in VALID_STATUSES:
         raise HTTPException(status_code=400, detail=f"유효하지 않은 상태입니다. 허용값: {', '.join(sorted(VALID_STATUSES))}")
@@ -485,7 +501,7 @@ def change_status(report_id: int, status: str = Body(..., embed=True)):
 
 
 @router.delete("/{report_id}")
-def remove_report(report_id: int):
+def remove_report(report_id: int, _: dict = Depends(get_current_user)):
     delete_report(report_id)
     return {"message": "삭제되었습니다."}
 
@@ -498,18 +514,28 @@ async def add_image(
     image: UploadFile = File(...),
     image_type: str = Form(""),
     image_description: str = Form(""),
+    _: dict = Depends(get_current_user),
 ):
     image_path = _save_image(image)
-    iid = insert_image(report_id, image_path, image_type or None, image_description or None)
+    try:
+        iid = insert_image(report_id, image_path, image_type or None, image_description or None)
+    except ReportNotFoundError:
+        _delete_saved_image(image_path)
+        raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
+    except Exception:
+        _delete_saved_image(image_path)
+        raise
     return {"image_id": iid, "image_path": image_path}
 
 
 @router.get("/{report_id}/images")
-def list_images(report_id: int):
+def list_images(report_id: int, _: dict = Depends(get_current_user)):
+    if get_report(report_id) is None:
+        raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
     return get_images(report_id)
 
 
 @router.delete("/images/{image_id}")
-def remove_image(image_id: int):
+def remove_image(image_id: int, _: dict = Depends(get_current_user)):
     delete_image(image_id)
     return {"message": "삭제되었습니다."}
