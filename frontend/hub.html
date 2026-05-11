@@ -22,6 +22,7 @@
         <div class="user-name" id="userName">홍길동 담당자</div>
         <div class="user-team">품질보증팀</div>
       </div>
+      <button class="logout-btn" id="adminBtn" onclick="location.href='/admin'" style="display:none;margin-right:6px;background:#e8f5f5;color:#0a4e4f;border:1px solid #b2dfdb;">계정 관리</button>
       <button class="logout-btn" onclick="doLogout()">로그아웃</button>
     </div>
   </div>
@@ -99,11 +100,15 @@
   <script src="js/main.js"></script>
   <script>
     const user = JSON.parse(sessionStorage.getItem('user'));
-    if (!user) {
+    if (!user?.token) {
       location.href = '/';
     } else {
       document.getElementById('userAvatar').textContent = user.name.charAt(0);
       document.getElementById('userName').textContent = user.name + ' 담당자';
+      if (user.role === 'admin') {
+        document.getElementById('adminBtn').style.display = '';
+        document.getElementById('userName').textContent = user.name + ' 관리자';
+      }
     }
 
     function doLogout() {

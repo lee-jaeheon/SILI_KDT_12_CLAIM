@@ -136,6 +136,23 @@ def _extract_insert_rows(sql_text: str, table_name: str) -> list[tuple]:
     return list(ast.literal_eval(f"[{values_text}]"))
 
 
+def _seed_admin_user(cur):
+    cur.execute("SELECT 1 FROM users WHERE username = 'admin'")
+    if cur.fetchone():
+        return
+    try:
+        from passlib.context import CryptContext
+        hashed = CryptContext(schemes=["bcrypt"], deprecated="auto").hash("1234")
+    except ImportError:
+        import logging
+        logging.getLogger(__name__).warning("passlib 미설치 — admin 계정 시드 건너뜀")
+        return
+    cur.execute(
+        "INSERT INTO users (username, password, name, role) VALUES (%s, %s, %s, %s)",
+        ("admin", hashed, "관리자", "admin"),
+    )
+
+
 def _seed_sample_cases(cur):
     if not SAMPLE_SQL_PATH.exists():
         return
@@ -295,9 +312,21 @@ def init_db():
                     INDEX idx_images_report (report_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id    INT          PRIMARY KEY AUTO_INCREMENT,
+                    username   VARCHAR(50)  UNIQUE NOT NULL,
+                    password   VARCHAR(255) NOT NULL,
+                    name       VARCHAR(100),
+                    role       VARCHAR(20)  NOT NULL DEFAULT 'user',
+                    is_active  TINYINT      NOT NULL DEFAULT 1,
+                    created_at DATETIME     DEFAULT NOW()
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
             _seed_defect_types(cur)
             _seed_sample_cases(cur)
             _seed_document_sequences(cur)
+            _seed_admin_user(cur)
 
     # DDL(ALTER TABLE)은 트랜잭션 밖 별도 커넥션에서 실행
     with get_conn() as conn:

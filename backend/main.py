@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import claim, ai
+from backend.routers import claim, ai, auth
 from backend.models.database import init_db
 
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(claim.router)
 app.include_router(ai.router)
 
@@ -61,6 +62,10 @@ def claim_step3_page():
 @app.get("/cases")
 def cases_page():
     return FileResponse(str(_BASE / "frontend" / "cases.html"))
+
+@app.get("/admin")
+def admin_page():
+    return FileResponse(str(_BASE / "frontend" / "admin.html"))
 
 @app.get("/logo.png")
 def logo():

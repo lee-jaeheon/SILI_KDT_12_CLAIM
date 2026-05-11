@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>계정 관리 · 납품 불량 클레임 대응 시스템</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body { background: #f4f5f7; }
+    .page-wrap { max-width: 900px; margin: 0 auto; padding: 32px 24px 48px; }
+    .page-title { font-size: 20px; font-weight: 600; color: #2c2c2c; margin-bottom: 6px; }
+    .page-sub   { font-size: 13px; color: #888; margin-bottom: 28px; }
+
+    .user-table-wrap { background: #fff; border-radius: 14px; border: 1px solid #e0e0e0; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    thead tr { background: #f8f8f8; border-bottom: 1px solid #e0e0e0; }
+    th { padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 600; color: #666; letter-spacing: .4px; white-space: nowrap; }
+    td { padding: 14px 16px; border-bottom: 1px solid #f0f0f0; color: #2c2c2c; vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafafa; }
+
+    .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .badge-admin    { background: #e8f5f5; color: #0a4e4f; }
+    .badge-user     { background: #f0f0f0; color: #555; }
+    .badge-active   { background: #c8e6c9; color: #1b5e20; }
+    .badge-inactive { background: #ffcdd2; color: #b71c1c; }
+
+    .action-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn-sm { padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid; font-family: inherit; white-space: nowrap; transition: opacity .15s; }
+    .btn-sm:hover { opacity: .8; }
+    .btn-sm:disabled { opacity: .35; cursor: not-allowed; }
+    .btn-toggle-status { background: #fff; color: #0d6b6c; border-color: #0d6b6c; }
+    .btn-toggle-role   { background: #fff; color: #555;    border-color: #bbb; }
+    .btn-delete        { background: #fff; color: #c62828; border-color: #e57373; }
+
+    .empty-row td { text-align: center; color: #bbb; padding: 40px; }
+
+    .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #2c2c2c; color: #fff; padding: 10px 22px; border-radius: 24px;
+      font-size: 13px; opacity: 0; transition: opacity .25s, transform .25s;
+      pointer-events: none; z-index: 999; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .back-btn { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 20px;
+      font-size: 13px; color: #0d6b6c; cursor: pointer; background: none; border: none;
+      font-family: inherit; padding: 0; }
+    .back-btn:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="logo-area">
+      <img src="logo.png" class="logo-icon" alt="로고" />
+      <div>
+        <div class="logo-title">납품 불량 클레임 대응 시스템</div>
+        <div class="logo-sub">AJIN INDUSTRIAL · QA 관리 시스템</div>
+      </div>
+    </div>
+    <div class="user-info">
+      <div class="user-avatar" id="userAvatar"></div>
+      <div>
+        <div class="user-name" id="userName"></div>
+        <div class="user-team">관리자</div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="page-wrap">
+    <button class="back-btn" onclick="location.href='/hub'">← 허브로 돌아가기</button>
+    <div class="page-title">계정 관리</div>
+    <div class="page-sub">사용자 계정의 역할 변경, 활성화/비활성화, 삭제를 관리합니다.</div>
+
+    <div class="user-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>아이디</th>
+            <th>이름</th>
+            <th>역할</th>
+            <th>상태</th>
+            <th>가입일</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody id="userTableBody">
+          <tr class="empty-row"><td colspan="7">불러오는 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <footer class="footer">
+    <div class="footer-left">© 2026 경북대 KDT 12기 · SILI 경진대회</div>
+    <div class="footer-status"><span class="status-dot"></span>로컬 서버 연결됨 · DB 정상</div>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script>
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    if (!user?.token)         { location.href = '/'; }
+    else if (user.role !== 'admin') { alert('관리자 권한이 필요합니다.'); location.href = '/hub'; }
+    else {
+      document.getElementById('userAvatar').textContent = user.name.charAt(0);
+      document.getElementById('userName').textContent   = user.name + ' 관리자';
+    }
+    function doLogout() { sessionStorage.removeItem('user'); location.href = '/'; }
+
+    let _currentUserId = user?.user_id;
+
+    function escHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    async function loadUsers() {
+      const data = await apiFetch('/api/auth/users');
+      const tbody = document.getElementById('userTableBody');
+      if (!data || !data.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="7">사용자가 없습니다.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(u => {
+        const isSelf  = u.user_id === _currentUserId;
+        const isAdmin = u.role === 'admin';
+        const roleLabel   = isAdmin ? '<span class="badge badge-admin">관리자</span>' : '<span class="badge badge-user">일반</span>';
+        const statusLabel = u.is_active
+          ? '<span class="badge badge-active">활성</span>'
+          : '<span class="badge badge-inactive">비활성</span>';
+        const toggleStatusLabel = u.is_active ? '비활성화' : '활성화';
+        const toggleRoleLabel   = isAdmin ? '일반으로' : '관리자로';
+        const canDisable = !isAdmin && !isSelf;
+        const canDelete  = !isAdmin && !isSelf;
+        return `
+          <tr>
+            <td style="color:#aaa">${u.user_id}</td>
+            <td>${escHtml(u.username)}</td>
+            <td>${escHtml(u.name || '-')}</td>
+            <td>${roleLabel}</td>
+            <td>${statusLabel}</td>
+            <td style="color:#888">${(u.created_at || '').slice(0, 10)}</td>
+            <td>
+              <div class="action-row">
+                <button class="btn-sm btn-toggle-status"
+                  ${!canDisable ? 'disabled' : ''}
+                  onclick="toggleStatus(${u.user_id})">${toggleStatusLabel}</button>
+                <button class="btn-sm btn-toggle-role"
+                  ${isSelf ? 'disabled' : ''}
+                  onclick="toggleRole(${u.user_id})">${toggleRoleLabel}</button>
+                <button class="btn-sm btn-delete"
+                  ${!canDelete ? 'disabled' : ''}
+                  onclick="deleteUser(${u.user_id}, '${escHtml(u.username)}')">삭제</button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    async function toggleStatus(userId) {
+      const res = await apiFetch(`/api/auth/users/${userId}/status`, { method: 'PATCH' });
+      if (res !== null) { showToast('상태가 변경됐습니다.'); loadUsers(); }
+    }
+
+    async function toggleRole(userId) {
+      if (!confirm('역할을 변경하시겠습니까?')) return;
+      const res = await apiFetch(`/api/auth/users/${userId}/role`, { method: 'PATCH' });
+      if (res !== null) { showToast('역할이 변경됐습니다.'); loadUsers(); }
+    }
+
+    async function deleteUser(userId, username) {
+      if (!confirm(`'${username}' 계정을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+      const res = await apiFetch(`/api/auth/users/${userId}`, { method: 'DELETE' });
+      if (res !== null) { showToast('계정이 삭제됐습니다.'); loadUsers(); }
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    loadUsers();
+  </script>
+</body>
+</html>

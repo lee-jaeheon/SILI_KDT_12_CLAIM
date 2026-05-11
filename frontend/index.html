@@ -14,105 +14,50 @@
       justify-content: center;
       background: #f0f2f5;
     }
-    .login-wrap {
-      width: 100%;
-      max-width: 400px;
-      padding: 0 24px;
-    }
-    .login-logo {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 36px;
-    }
-    .login-logo svg {
-      width: 52px;
-      height: 52px;
-      margin-bottom: 14px;
-    }
-    .login-logo-title {
-      font-size: 18px;
-      font-weight: 500;
-      color: #2c2c2c;
-      margin-bottom: 4px;
-      text-align: center;
-    }
-    .login-logo-sub {
-      font-size: 12px;
-      color: #888;
-      text-align: center;
-    }
-    .login-card {
-      background: #ffffff;
-      border-radius: 16px;
-      border: 1px solid #e0e0e0;
-      padding: 32px 28px;
-    }
-    .login-card h2 {
-      font-size: 16px;
-      font-weight: 500;
-      color: #2c2c2c;
-      margin-bottom: 24px;
-    }
-    .form-group {
-      margin-bottom: 16px;
-    }
-    .form-group label {
-      display: block;
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 6px;
-    }
+    .login-wrap { width: 100%; max-width: 400px; padding: 0 24px; }
+    .login-logo { display: flex; flex-direction: column; align-items: center; margin-bottom: 36px; }
+    .login-logo-title { font-size: 18px; font-weight: 500; color: #2c2c2c; margin-bottom: 4px; text-align: center; }
+    .login-logo-sub { font-size: 12px; color: #888; text-align: center; }
+    .login-card { background: #fff; border-radius: 16px; border: 1px solid #e0e0e0; padding: 32px 28px; }
+    .login-card h2 { font-size: 16px; font-weight: 500; color: #2c2c2c; margin-bottom: 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 6px; }
     .form-group input {
-      width: 100%;
-      padding: 10px 14px;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      font-size: 14px;
-      color: #2c2c2c;
-      background: #fff;
-      outline: none;
-      transition: border-color 0.15s;
+      width: 100%; padding: 10px 14px; border: 1px solid #e0e0e0; border-radius: 8px;
+      font-size: 14px; color: #2c2c2c; background: #fff; outline: none;
+      transition: border-color 0.15s; font-family: inherit; box-sizing: border-box;
     }
-    .form-group input:focus {
-      border-color: #0d6b6c;
-    }
+    .form-group input:focus { border-color: #0d6b6c; }
     .login-btn {
-      width: 100%;
-      padding: 12px;
-      background: #0d6b6c;
-      color: #2c2c2c;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      margin-top: 8px;
-      transition: background 0.15s;
+      width: 100%; padding: 12px; background: #0d6b6c; color: #fff; border: none;
+      border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;
+      margin-top: 8px; transition: background 0.15s; font-family: inherit;
     }
-    .login-btn:hover {
-      background: #0a5a5b;
-    }
+    .login-btn:hover { background: #0a5a5b; }
+    .login-btn:disabled { background: #9ec5c5; cursor: not-allowed; }
     .login-error {
-      display: none;
-      margin-top: 12px;
-      padding: 10px 14px;
-      background: #fdecea;
-      border-radius: 8px;
-      font-size: 12px;
-      color: #c62828;
-      text-align: center;
+      display: none; margin-top: 12px; padding: 10px 14px;
+      background: #fdecea; border-radius: 8px; font-size: 12px;
+      color: #c62828; text-align: center;
     }
-    .login-footer {
-      text-align: center;
-      margin-top: 28px;
-      font-size: 11px;
-      color: #aaa;
+    .login-error.show { display: block; }
+    .login-success {
+      display: none; margin-top: 12px; padding: 10px 14px;
+      background: #e8f5e9; border-radius: 8px; font-size: 12px;
+      color: #1b5e20; text-align: center;
     }
+    .login-success.show { display: block; }
+    .toggle-link {
+      text-align: center; margin-top: 20px; font-size: 13px; color: #888;
+    }
+    .toggle-link a { color: #0d6b6c; cursor: pointer; text-decoration: none; font-weight: 500; }
+    .toggle-link a:hover { text-decoration: underline; }
+    .login-footer { text-align: center; margin-top: 28px; font-size: 11px; color: #aaa; }
+    .panel { display: none; }
+    .panel.active { display: block; }
   </style>
 </head>
 <body>
-
   <div class="login-wrap">
     <div class="login-logo">
       <img src="logo.png" style="width:64px;height:64px;" alt="로고" />
@@ -120,50 +65,150 @@
       <div class="login-logo-sub">AJIN INDUSTRIAL · QA 관리 시스템</div>
     </div>
 
-    <div class="login-card">
+    <!-- 로그인 패널 -->
+    <div class="login-card panel active" id="loginPanel">
       <h2>로그인</h2>
-
       <div class="form-group">
         <label>아이디</label>
-        <input type="text" id="username" placeholder="아이디를 입력하세요" />
+        <input type="text" id="loginId" placeholder="아이디를 입력하세요" />
       </div>
-
       <div class="form-group">
         <label>비밀번호</label>
-        <input type="password" id="password" placeholder="비밀번호를 입력하세요" />
+        <input type="password" id="loginPw" placeholder="비밀번호를 입력하세요" />
       </div>
-
-      <button class="login-btn" onclick="doLogin()">로그인</button>
-
-      <div class="login-error" id="loginError">
-        아이디 또는 비밀번호가 올바르지 않습니다.
+      <button class="login-btn" id="loginBtn" onclick="doLogin()">로그인</button>
+      <div class="login-error" id="loginError"></div>
+      <div class="toggle-link">
+        계정이 없으신가요? <a onclick="showPanel('register')">회원가입</a>
       </div>
     </div>
 
-    <div class="login-footer">
-      © 2026 경북대 KDT 12기 · SILI 경진대회
+    <!-- 회원가입 패널 -->
+    <div class="login-card panel" id="registerPanel">
+      <h2>회원가입</h2>
+      <div class="form-group">
+        <label>아이디 (3자 이상)</label>
+        <input type="text" id="regId" placeholder="사용할 아이디를 입력하세요" />
+      </div>
+      <div class="form-group">
+        <label>이름</label>
+        <input type="text" id="regName" placeholder="실명을 입력하세요" />
+      </div>
+      <div class="form-group">
+        <label>비밀번호 (4자 이상)</label>
+        <input type="password" id="regPw" placeholder="비밀번호를 입력하세요" />
+      </div>
+      <div class="form-group">
+        <label>비밀번호 확인</label>
+        <input type="password" id="regPw2" placeholder="비밀번호를 다시 입력하세요" />
+      </div>
+      <button class="login-btn" id="regBtn" onclick="doRegister()">가입하기</button>
+      <div class="login-error" id="regError"></div>
+      <div class="login-success" id="regSuccess"></div>
+      <div class="toggle-link">
+        이미 계정이 있으신가요? <a onclick="showPanel('login')">로그인</a>
+      </div>
     </div>
+
+    <div class="login-footer">© 2026 경북대 KDT 12기 · SILI 경진대회</div>
   </div>
 
   <script>
-    const USERS = [
-      { id: 'admin', pw: '1234', name: '홍길동', team: '품질보증팀' },
-      { id: 'qa01',  pw: '1234', name: '김철수', team: '품질보증팀' },
-    ];
+    // 이미 로그인된 경우 바로 이동
+    const _existing = sessionStorage.getItem('user');
+    if (_existing) {
+      try { if (JSON.parse(_existing).token) location.href = '/hub'; } catch {}
+    }
 
-    document.getElementById('password').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') doLogin();
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter') return;
+      const lp = document.getElementById('loginPanel');
+      const rp = document.getElementById('registerPanel');
+      if (lp.classList.contains('active')) doLogin();
+      else if (rp.classList.contains('active')) doRegister();
     });
 
-    function doLogin() {
-      const id = document.getElementById('username').value.trim();
-      const pw = document.getElementById('password').value;
-      const user = USERS.find(u => u.id === id && u.pw === pw);
-      if (user) {
-        sessionStorage.setItem('user', JSON.stringify(user));
-        location.href = '/hub';
-      } else {
-        document.getElementById('loginError').style.display = 'block';
+    function showPanel(name) {
+      document.getElementById('loginPanel').classList.toggle('active', name === 'login');
+      document.getElementById('registerPanel').classList.toggle('active', name === 'register');
+      document.getElementById('loginError').classList.remove('show');
+      document.getElementById('regError').classList.remove('show');
+      document.getElementById('regSuccess').classList.remove('show');
+    }
+
+    async function doLogin() {
+      const username = document.getElementById('loginId').value.trim();
+      const password = document.getElementById('loginPw').value;
+      const errEl    = document.getElementById('loginError');
+      const btn      = document.getElementById('loginBtn');
+      errEl.classList.remove('show');
+      if (!username || !password) {
+        errEl.textContent = '아이디와 비밀번호를 입력해주세요.';
+        errEl.classList.add('show'); return;
+      }
+      btn.disabled = true; btn.textContent = '로그인 중...';
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errEl.textContent = data.detail || '로그인에 실패했습니다.';
+          errEl.classList.add('show');
+        } else {
+          // 토큰을 user 객체 안에 내장 → 기존 페이지 doLogout() 호환
+          sessionStorage.setItem('user', JSON.stringify({ ...data.user, token: data.token }));
+          location.href = '/hub';
+        }
+      } catch {
+        errEl.textContent = '서버에 연결할 수 없습니다.';
+        errEl.classList.add('show');
+      } finally {
+        btn.disabled = false; btn.textContent = '로그인';
+      }
+    }
+
+    async function doRegister() {
+      const username = document.getElementById('regId').value.trim();
+      const name     = document.getElementById('regName').value.trim();
+      const password = document.getElementById('regPw').value;
+      const password2 = document.getElementById('regPw2').value;
+      const errEl    = document.getElementById('regError');
+      const sucEl    = document.getElementById('regSuccess');
+      const btn      = document.getElementById('regBtn');
+      errEl.classList.remove('show'); sucEl.classList.remove('show');
+
+      if (!username || !name || !password || !password2) {
+        errEl.textContent = '모든 항목을 입력해주세요.';
+        errEl.classList.add('show'); return;
+      }
+      if (password !== password2) {
+        errEl.textContent = '비밀번호가 일치하지 않습니다.';
+        errEl.classList.add('show'); return;
+      }
+      btn.disabled = true; btn.textContent = '처리 중...';
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, name, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errEl.textContent = data.detail || '가입에 실패했습니다.';
+          errEl.classList.add('show');
+        } else {
+          sucEl.textContent = '가입이 완료됐습니다! 로그인 해주세요.';
+          sucEl.classList.add('show');
+          setTimeout(() => showPanel('login'), 1500);
+        }
+      } catch {
+        errEl.textContent = '서버에 연결할 수 없습니다.';
+        errEl.classList.add('show');
+      } finally {
+        btn.disabled = false; btn.textContent = '가입하기';
       }
     }
   </script>

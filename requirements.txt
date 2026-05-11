@@ -5,9 +5,11 @@ httpx
 pillow
 torch
 torchvision
-timm
+ultralytics
 pdfplumber
 python-docx
 aiofiles
 pymysql
 python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]

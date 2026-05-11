@@ -109,6 +109,13 @@
     .btn-submit:hover { background:#0a5a5b; }
     .btn-submit:disabled { background:#9ec5c5; cursor:not-allowed; }
 
+    .btn-ai-generate { display:flex; align-items:center; gap:8px; padding:10px 20px; background:#fff; border:1.5px solid var(--accent); border-radius:9px; font-size:13px; font-weight:600; cursor:pointer; color:var(--accent); font-family:inherit; transition:background .15s; }
+    .btn-ai-generate:hover:not(:disabled) { background:var(--accent-bg); }
+    .btn-ai-generate:disabled { opacity:.5; cursor:not-allowed; }
+    .ai-gen-banner { display:none; background:#e8f5f5; border:1px solid #0d6b6c; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:13px; color:#0a4e4f; align-items:center; gap:8px; }
+    .ai-gen-banner.show { display:flex; }
+    .ai-gen-spinner { width:14px; height:14px; border:2px solid #b0d8d8; border-top-color:#0d6b6c; border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
+
     /* 유사 사례 패널 */
     .spinner { width:18px; height:18px; border:2px solid #e0e0e0; border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
@@ -208,6 +215,20 @@
       <div class="auto-fill-banner" id="autoFillBanner">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
         <span>AI가 문서 내용을 자동으로 입력했습니다. 내용을 확인 후 수정하세요.</span>
+      </div>
+
+      <div class="ai-gen-banner" id="aiGenBanner">
+        <div class="ai-gen-spinner" id="aiGenSpinner"></div>
+        <span id="aiGenMsg">AI가 보고서를 생성 중입니다...</span>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+        <button class="btn-ai-generate" id="aiGenBtn" onclick="generateReport()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+          AI 보고서 자동 생성
+        </button>
       </div>
 
       <div class="panel-title">
@@ -449,6 +470,67 @@
     }
 
     function onDefectChange(code) { loadSimilar(code); }
+
+    async function generateReport() {
+      const defectType = getDefectType();
+      if (!defectType) {
+        alert('불량 유형을 먼저 선택하세요.');
+        return;
+      }
+
+      const btn    = document.getElementById('aiGenBtn');
+      const banner = document.getElementById('aiGenBanner');
+      const msg    = document.getElementById('aiGenMsg');
+      const spinner = document.getElementById('aiGenSpinner');
+      btn.disabled = true;
+      banner.classList.add('show');
+      spinner.style.display = 'block';
+      msg.textContent = 'AI가 불량 유형·클레임 내용·유사 사례를 분석 중입니다...';
+
+      const rid = sessionStorage.getItem('claim_report_id');
+      let reportData = {};
+      if (rid) {
+        reportData = await apiFetch('/api/reports/' + rid) || {};
+      }
+
+      const params = new URLSearchParams({
+        defect_type:     defectType,
+        confidence:      reportData.ai_confidence || 0,
+        claim_text:      reportData.claim_text || reportData.extracted_text || '',
+        customer_name:   document.getElementById('supplier').value.trim(),
+        product_name:    document.getElementById('product_name').value.trim(),
+        defect_location: document.getElementById('defect_location').value.trim(),
+      });
+
+      const data = await apiFetch('/api/generate-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params,
+      });
+
+      if (data) {
+        if (data.root_cause_analysis) {
+          document.getElementById('root_cause').value = data.root_cause_analysis;
+          document.getElementById('root_cause').classList.add('auto-filled');
+        }
+        if (data.corrective_action) {
+          document.getElementById('action').value = data.corrective_action;
+          document.getElementById('action').classList.add('auto-filled');
+        }
+        if (data.preventive_action) {
+          document.getElementById('prevention').value = data.preventive_action;
+          document.getElementById('prevention').classList.add('auto-filled');
+        }
+        spinner.style.display = 'none';
+        msg.textContent = '✓ AI 보고서 생성 완료. 내용을 확인 후 수정하세요.';
+        showToast('AI 보고서가 생성됐습니다.');
+      } else {
+        spinner.style.display = 'none';
+        msg.textContent = '보고서 생성에 실패했습니다. 직접 입력하세요.';
+      }
+
+      btn.disabled = false;
+    }
 
     async function handleDocUpload(input) {
       const file = input.files[0]; if (!file) return;
