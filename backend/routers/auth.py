@@ -18,7 +18,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-JWT_SECRET       = os.getenv("JWT_SECRET", "ajin-qms-jwt-secret-2026-secure-key")
+JWT_SECRET       = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError(
+        "JWT_SECRET 환경변수가 설정되지 않았습니다. "
+        ".env 또는 start.bat에 'JWT_SECRET=<랜덤긴문자열>' 추가하세요."
+    )
 JWT_ALGORITHM    = "HS256"
 JWT_EXPIRE_HOURS = 8
 
@@ -51,9 +56,35 @@ def get_current_user(
     if not credentials:
         raise HTTPException(status_code=401, detail="인증이 필요합니다.")
     try:
-        return decode_token(credentials.credentials)
+        payload = decode_token(credentials.credentials)
     except JWTError:
         raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+
+    # DB 재검증: 비활성화/삭제/role 변경 즉시 반영
+    user_id = payload.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT user_id, username, name, role, is_active FROM users WHERE user_id = %s",
+                (user_id,),
+            )
+            user = cur.fetchone()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="존재하지 않는 사용자입니다.")
+    if not user["is_active"]:
+        raise HTTPException(status_code=401, detail="비활성화된 계정입니다.")
+
+    # DB의 최신 role을 권위로 사용 (토큰 payload 안의 role 무시)
+    return {
+        "user_id":  user["user_id"],
+        "username": user["username"],
+        "name":     user["name"],
+        "role":     user["role"],
+    }
 
 def require_admin(user: dict = Depends(get_current_user)):
     if user.get("role") != "admin":

@@ -519,7 +519,8 @@ def update_report(report_id: int, fields: dict) -> str:
             return "unchanged" if cur.fetchone() else "missing"
 
 
-def delete_report(report_id: int):
+def delete_report(report_id: int) -> int:
+    """삭제된 row 수 반환 (0이면 대상 없음)"""
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -527,10 +528,12 @@ def delete_report(report_id: int):
             )
             rows = cur.fetchall()
             cur.execute("DELETE FROM defect_reports WHERE report_id = %s", (report_id,))
+            affected = cur.rowcount
     for row in rows:
         full_path = Path(__file__).parent.parent.parent / row["image_path"].lstrip("/")
         if full_path.exists():
             full_path.unlink()
+    return affected
 
 
 # ── defect_report_images ───────────────────────
@@ -564,7 +567,8 @@ def get_images(report_id: int) -> list[dict]:
             return cur.fetchall()
 
 
-def delete_image(image_id: int):
+def delete_image(image_id: int) -> int:
+    """삭제된 row 수 반환 (0이면 대상 없음)"""
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -572,10 +576,12 @@ def delete_image(image_id: int):
             )
             row = cur.fetchone()
             cur.execute("DELETE FROM defect_report_images WHERE image_id = %s", (image_id,))
+            affected = cur.rowcount
     if row:
         full_path = Path(__file__).parent.parent.parent / row["image_path"].lstrip("/")
         if full_path.exists():
             full_path.unlink()
+    return affected
 
 
 # ── 유사 사례 검색 ──────────────────────────────

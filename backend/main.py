@@ -52,6 +52,7 @@ MODEL_PATH = _BASE / "models" / "defect_classifier.pt"
 
 @app.get("/health")
 async def health():
+    # 내부 오류 메시지·전체 경로 노출 방지. ok 여부만 외부 공개.
     checks = {}
 
     try:
@@ -61,7 +62,8 @@ async def health():
                 cur.fetchone()
         checks["db"] = {"ok": True}
     except Exception as e:
-        checks["db"] = {"ok": False, "error": str(e)}
+        logging.warning("health: DB check failed: %s", e)
+        checks["db"] = {"ok": False}
 
     try:
         async with httpx.AsyncClient(timeout=2) as client:
@@ -69,18 +71,12 @@ async def health():
             res.raise_for_status()
             tags = res.json().get("models", [])
             names = [t.get("name", "") for t in tags]
-            checks["ollama"] = {
-                "ok": True,
-                "model_loaded": OLLAMA_MODEL in names,
-                "model": OLLAMA_MODEL,
-            }
+            checks["ollama"] = {"ok": True, "model_loaded": OLLAMA_MODEL in names}
     except Exception as e:
-        checks["ollama"] = {"ok": False, "error": str(e)}
+        logging.warning("health: Ollama check failed: %s", e)
+        checks["ollama"] = {"ok": False}
 
-    checks["model"] = {
-        "ok": MODEL_PATH.exists(),
-        "path": str(MODEL_PATH),
-    }
+    checks["model"] = {"ok": MODEL_PATH.exists()}
 
     overall = all(c.get("ok") for c in checks.values())
     return JSONResponse(

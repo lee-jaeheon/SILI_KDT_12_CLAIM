@@ -479,6 +479,12 @@ class UpdateBody(BaseModel):
 
 @router.put("/{report_id}")
 def update_report_api(report_id: int, body: UpdateBody, _: dict = Depends(get_current_user)):
+    # defect_type이 들어오면 유효성 검증 (생성 API와 동일)
+    if body.defect_type:
+        valid_codes = {d["code"] for d in get_defect_types()}
+        if body.defect_type not in valid_codes:
+            raise HTTPException(status_code=400, detail=f"유효하지 않은 불량 유형입니다: {body.defect_type}")
+
     result = update_report(report_id, body.model_dump(exclude_none=True))
     if result == "missing":
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
@@ -502,7 +508,8 @@ def change_status(report_id: int, status: str = Body(..., embed=True), _: dict =
 
 @router.delete("/{report_id}")
 def remove_report(report_id: int, _: dict = Depends(get_current_user)):
-    delete_report(report_id)
+    if delete_report(report_id) == 0:
+        raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
     return {"message": "삭제되었습니다."}
 
 
@@ -537,5 +544,6 @@ def list_images(report_id: int, _: dict = Depends(get_current_user)):
 
 @router.delete("/images/{image_id}")
 def remove_image(image_id: int, _: dict = Depends(get_current_user)):
-    delete_image(image_id)
+    if delete_image(image_id) == 0:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
     return {"message": "삭제되었습니다."}
