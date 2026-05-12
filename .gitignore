@@ -1,0 +1,23 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+database/
+logs/
+uploads/*
+!uploads/sample_cases/
+!uploads/sample_cases/*.jpg
+# AI 모델 가중치 파일
+*.pt
+*.pth
+*.h5
+*.onnx
+*.pkl
+/models/
+.env
+
+# 딥러닝 학습 데이터 및 결과물
+dataset/
+runs/
+yolov8n-cls.pt
+yolo26n.pt
