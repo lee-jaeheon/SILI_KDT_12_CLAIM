@@ -240,6 +240,16 @@
             <span class="defect-radio-box"></span>
             <span class="defect-radio-label">홀 변형</span>
           </label>
+          <label class="defect-radio-item">
+            <input type="radio" name="defectType" value="GAP_DEFECT" />
+            <span class="defect-radio-box"></span>
+            <span class="defect-radio-label">유격 불량</span>
+          </label>
+          <label class="defect-radio-item">
+            <input type="radio" name="defectType" value="FASTENING_DEFECT" />
+            <span class="defect-radio-box"></span>
+            <span class="defect-radio-label">체결 불량</span>
+          </label>
         </div>
       </div>
     </div>
@@ -258,7 +268,7 @@
 
   <script src="js/main.js"></script>
   <script>
-    const DEFECT_LABELS = { 'OUTER_DAMAGE':'외관 손상', 'SEALING':'실링 불량', 'HEMMING':'헤밍 불량', 'HOLE_DEFORM':'홀 변형' };
+    const DEFECT_LABELS = { 'OUTER_DAMAGE':'외관 손상', 'SEALING':'실링 불량', 'HEMMING':'헤밍 불량', 'HOLE_DEFORM':'홀 변형', 'GAP_DEFECT':'유격 불량', 'FASTENING_DEFECT':'체결 불량' };
 
     const user = JSON.parse(sessionStorage.getItem('user'));
     if (!user) { location.href = '/'; }
@@ -346,7 +356,7 @@
         autoFill('handler',            parsed.handler);
         if (parsed.delivery_quantity) autoFill('delivery_quantity', String(parseInt(parsed.delivery_quantity)));
         if (parsed.defect_quantity)   autoFill('defect_quantity',   String(parseInt(parsed.defect_quantity)));
-        const validCodes = ['OUTER_DAMAGE','SEALING','HEMMING','HOLE_DEFORM'];
+        const validCodes = ['OUTER_DAMAGE','SEALING','HEMMING','HOLE_DEFORM','GAP_DEFECT','FASTENING_DEFECT'];
         if (parsed.defect_type && validCodes.includes(parsed.defect_type)) setDefectType(parsed.defect_type);
         document.getElementById('autoFillBanner').classList.add('show');
       }

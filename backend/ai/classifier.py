@@ -1,53 +1,87 @@
 import io
 import logging
+import os
 from pathlib import Path
+
 from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-MODEL_DIR  = Path(__file__).parent.parent.parent / "models"
-MODEL_PATH = MODEL_DIR / "defect_classifier.pt"   # YOLOv8-cls 학습 모델
+MODEL_DIR = Path(__file__).parent.parent.parent / "models"
+MODEL_PATH = MODEL_DIR / "defect_detector.pt"
+DEFAULT_CONF = float(os.getenv("YOLO_DET_CONF", "0.25"))
 
-# YOLOv8 학습 시 사용한 폴더명 → 시스템 불량 코드 매핑
-CLASS_NAME_TO_CODE = {
+MODEL_NAME_TO_CODE = {
     "outer_damage": "OUTER_DAMAGE",
-    "sealing":      "SEALING",
-    "hemming":      "HEMMING",
-    "hole_deform":  "HOLE_DEFORM",
+    "sealing": "SEALING",
+    "hemming": "HEMMING",
+    "hole_deform": "HOLE_DEFORM",
+    "gap_defect": "GAP_DEFECT",
+    "fastening_defect": "FASTENING_DEFECT",
 }
 
 
 def load_model():
-    """
-    YOLOv8-cls 모델 로드.
-    모델 파일 없으면 None 반환 → ai.py에서 더미 모드로 자동 전환.
-    """
+    """Load the YOLOv8 detection model, or return None for dummy mode."""
     if not MODEL_PATH.exists():
-        logger.warning(f"모델 파일 없음({MODEL_PATH}) — 더미 모드로 동작")
+        logger.warning("model file missing (%s); starting in dummy mode", MODEL_PATH)
         return None
     try:
         from ultralytics import YOLO
+
         model = YOLO(str(MODEL_PATH))
-        logger.info(f"YOLOv8-cls 모델 로드 완료: {MODEL_PATH}")
+        logger.info("YOLOv8 detection model loaded: %s", MODEL_PATH)
         return model
-    except Exception as e:
-        logger.error(f"모델 로드 실패: {e}")
+    except Exception as exc:
+        logger.error("model load failed: %s", exc)
         return None
 
 
-def predict(model, image_data: bytes) -> tuple[str, float]:
+def predict_detections(model, image_data: bytes, conf: float = DEFAULT_CONF) -> list[dict]:
     """
-    반환: (defect_code, confidence)
-      defect_code : OUTER_DAMAGE / SEALING / HEMMING / HOLE_DEFORM 중 하나
-      confidence  : 0.0 ~ 1.0
+    Return detections as:
+    [{"defect_code", "class_name", "confidence", "bbox_xywh", "bbox_xyxy"}, ...]
     """
-    img     = Image.open(io.BytesIO(image_data)).convert("RGB")
-    results = model(img, verbose=False)
+    img = Image.open(io.BytesIO(image_data)).convert("RGB")
+    result = model(img, verbose=False, conf=conf)[0]
+    boxes = result.boxes
+    if boxes is None:
+        return []
 
-    probs      = results[0].probs
-    top1_idx   = int(probs.top1)
-    confidence = float(probs.top1conf)
-    class_name = results[0].names[top1_idx]          # ex) "hemming"
+    detections: list[dict] = []
+    for box in boxes:
+        cls_idx = int(box.cls[0])
+        confidence = float(box.conf[0])
+        class_name = result.names[cls_idx]
+        defect_code = MODEL_NAME_TO_CODE.get(class_name, "OUTER_DAMAGE")
+        xywh = [round(float(value), 2) for value in box.xywh[0].tolist()]
+        xyxy = [round(float(value), 2) for value in box.xyxy[0].tolist()]
+        detections.append(
+            {
+                "defect_code": defect_code,
+                "class_name": class_name,
+                "confidence": confidence,
+                "bbox_xywh": xywh,
+                "bbox_xyxy": xyxy,
+            }
+        )
 
-    defect_code = CLASS_NAME_TO_CODE.get(class_name, "OUTER_DAMAGE")
+    detections.sort(key=lambda item: item["confidence"], reverse=True)
+    return detections
+
+
+def predict_with_detections(
+    model, image_data: bytes
+) -> tuple[str | None, float, list[dict]]:
+    detections = predict_detections(model, image_data)
+    if not detections:
+        return None, 0.0, []
+
+    top = detections[0]
+    return top["defect_code"], top["confidence"], detections
+
+
+def predict(model, image_data: bytes) -> tuple[str | None, float]:
+    """Backward-compatible wrapper for callers that only need one label."""
+    defect_code, confidence, _detections = predict_with_detections(model, image_data)
     return defect_code, confidence

@@ -33,7 +33,9 @@ INSERT IGNORE INTO defect_types (code, label, category_id, description) VALUES
     ('OUTER_DAMAGE', '외관 손상', 102, '외관 긁힘, 찍힘, 변형 등 육안 식별 불량'),
     ('SEALING',      '실링 불량', 204, '실링재 미도포, 부족, 위치 이탈'),
     ('HEMMING',      '헤밍 불량', 212, '헤밍 공정 접합 불량'),
-    ('HOLE_DEFORM',  '홀 변형',   213, '홀 치수 이탈, 변형');
+    ('HOLE_DEFORM',  '홀 변형',   213, '홀 치수 이탈, 변형'),
+    ('GAP_DEFECT',   '유격 불량', 207, '커넥터 유격 및 조립 간격 불량'),
+    ('FASTENING_DEFECT', '체결 불량', 209, '커넥터 체결 상태 불량');
 
 
 -- ------------------------------------------------------------

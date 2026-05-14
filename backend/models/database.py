@@ -111,6 +111,8 @@ def _seed_defect_types(cur):
             ("SEALING",      "\uc2e4\ub9c1 \ubd88\ub7c9", 204, "\uc2e4\ub9c1\uc7ac \ubbf8\ub3c4\ud3ec, \ubd80\uc871, \uc704\uce58 \uc774\ud0c8"),
             ("HEMMING",      "\ud5e4\ubc0d \ubd88\ub7c9", 212, "\ud5e4\ubc0d \uacf5\uc815 \uc811\ud569 \ubd88\ub7c9"),
             ("HOLE_DEFORM",  "\ud640 \ubcc0\ud615",   213, "\ud640 \uce58\uc218 \uc774\ud0c8, \ubcc0\ud615"),
+            ("GAP_DEFECT",   "\uc720\uaca9 \ubd88\ub7c9", 207, "\ucf54\ub125\ud130 \uc720\uaca9 \ubc0f \uc870\ub9bd \uac04\uaca9 \ubd88\ub7c9"),
+            ("FASTENING_DEFECT", "\uccb4\uacb0 \ubd88\ub7c9", 209, "\ucf54\ub125\ud130 \uccb4\uacb0 \uc0c1\ud0dc \ubd88\ub7c9"),
         ],
     )
 

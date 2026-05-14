@@ -32,6 +32,8 @@ _DEFECT_KR = {
     "SEALING":      "실링 불량",
     "HEMMING":      "헤밍 불량",
     "HOLE_DEFORM":  "홀 변형",
+    "GAP_DEFECT":   "유격 불량",
+    "FASTENING_DEFECT": "체결 불량",
 }
 
 
@@ -42,6 +44,8 @@ _DEFECT_CHECKBOX = {
     "SEALING":      "실링 불량",
     "HEMMING":      "헤밍 불량",
     "HOLE_DEFORM":  "홀 변형",
+    "GAP_DEFECT":   "유격 불량",
+    "FASTENING_DEFECT": "체결 불량",
 }
 
 

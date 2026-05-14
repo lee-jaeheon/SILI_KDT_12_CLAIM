@@ -20,6 +20,8 @@ DEFECT_LABELS = {
     "SEALING":      "실링 불량",
     "HEMMING":      "헤밍 불량",
     "HOLE_DEFORM":  "홀 변형",
+    "GAP_DEFECT":   "유격 불량",
+    "FASTENING_DEFECT": "체결 불량",
 }
 
 # 서버 시작 시 모델 1회 로드
@@ -45,20 +47,28 @@ async def classify_image(image: UploadFile = File(...)):
     model = _get_model()
 
     if model:
-        from backend.ai.classifier import predict
-        defect_type, confidence = predict(model, image_data)
+        from backend.ai.classifier import predict_with_detections
+        defect_type, confidence, detections = predict_with_detections(model, image_data)
     else:
         defect_type = random.choice(list(DEFECT_LABELS.keys()))
         confidence  = round(random.uniform(0.55, 0.92), 3)
+        detections = []
 
-    from backend.models.database import search_similar
-    similar = search_similar(defect_type=defect_type, limit=3)
+    if defect_type is None:
+        label = "미검출"
+        similar = []
+    else:
+        label = DEFECT_LABELS.get(defect_type, defect_type)
+        from backend.models.database import search_similar
+        similar = search_similar(defect_type=defect_type, limit=3)
 
     return {
         "defect_type":    defect_type,
-        "label":          DEFECT_LABELS.get(defect_type, defect_type),
+        "label":          label,
         "confidence":     confidence,
         "confidence_pct": f"{confidence * 100:.1f}%",
+        "detections":     detections,
+        "bbox":           detections[0]["bbox_xywh"] if detections else None,
         "is_dummy":       model is None,
         "similar_cases":  similar,
     }
@@ -119,7 +129,7 @@ async def parse_claim(text: str = Form(...)):
     prompt = f"""아래 클레임 텍스트에서 정보를 추출해서 JSON으로 출력하라. 반드시 JSON만 출력하고 설명은 쓰지 마라.
 
 출력 형식:
-{{"customer_name":"고객사명","product_name":"품명","defect_type":"OUTER_DAMAGE또는SEALING또는HEMMING또는HOLE_DEFORM","delivery_quantity":수량숫자,"defect_quantity":불량수량숫자,"handler":"담당자이름","root_cause_analysis":"원인분석내용","corrective_action":"시정조치내용","preventive_action":"재발방지내용"}}
+{{"customer_name":"고객사명","product_name":"품명","defect_type":"OUTER_DAMAGE또는SEALING또는HEMMING또는HOLE_DEFORM또는GAP_DEFECT또는FASTENING_DEFECT","delivery_quantity":수량숫자,"defect_quantity":불량수량숫자,"handler":"담당자이름","root_cause_analysis":"원인분석내용","corrective_action":"시정조치내용","preventive_action":"재발방지내용"}}
 
 정보가 없으면 null로 채워라.
 

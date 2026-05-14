@@ -1,74 +1,85 @@
-# YOLOv8-cls 분류 모델 학습 스크립트
-# 실행: .venv/Scripts/python backend/ai/train.py
-import sys, time
-sys.stdout.reconfigure(encoding="utf-8")
+"""Train the YOLOv8 detection model for defect bounding boxes."""
 
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+import time
 from pathlib import Path
+
 from ultralytics import YOLO
 
-DATASET_DIR = Path("dataset").resolve()
-MODEL_SAVE  = Path("models/defect_classifier.pt")
+sys.stdout.reconfigure(encoding="utf-8")
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+DATASET_YAML = Path(os.getenv("AJIN_YOLO_DET_DATA", r"D:\Deeplearning\ajin\dataset_yolo_detection\data.yaml"))
+MODEL_SAVE = BASE_DIR / "models" / "defect_detector.pt"
 MODEL_SAVE.parent.mkdir(parents=True, exist_ok=True)
 
-EPOCHS  = 50
-IMGSZ   = 224
-BATCH   = 32
-WORKERS = 4
+BASE_MODEL = os.getenv("YOLO_DET_BASE_MODEL", "yolov8n.pt")
+EPOCHS = int(os.getenv("YOLO_DET_EPOCHS", "50"))
+IMGSZ = int(os.getenv("YOLO_DET_IMGSZ", "640"))
+BATCH = int(os.getenv("YOLO_DET_BATCH", "8"))  # Conservative default for 8GB VRAM.
+WORKERS = int(os.getenv("YOLO_DET_WORKERS", "4"))
+DEVICE = os.getenv("YOLO_DET_DEVICE", "0")
+
+
+def _count_labels(dataset_yaml: Path) -> tuple[int, int]:
+    root = dataset_yaml.parent
+    train = len(list((root / "labels" / "train").glob("*.txt")))
+    val = len(list((root / "labels" / "val").glob("*.txt")))
+    return train, val
+
 
 if __name__ == "__main__":
-    print("=" * 55)
-    print("  납품 불량 분류 모델 학습 시작")
-    print("=" * 55)
-    print(f"  데이터셋: {DATASET_DIR}")
-    print(f"  Epochs : {EPOCHS}")
-    print(f"  Imgsz  : {IMGSZ}px")
-    print(f"  Batch  : {BATCH}")
+    if not DATASET_YAML.exists():
+        raise FileNotFoundError(
+            f"Dataset YAML not found: {DATASET_YAML}. "
+            "Run tools/extract_dataset_yolo_detection.py first."
+        )
 
-    # 클래스별 이미지 수 출력
-    for split in ["train", "val"]:
-        print(f"\n  {split}/")
-        for cls in sorted((DATASET_DIR / split).iterdir()):
-            n = len(list(cls.glob("*.*")))
-            print(f"    {cls.name:15s}: {n}장")
+    train_count, val_count = _count_labels(DATASET_YAML)
 
-    print("\n" + "=" * 55)
-    print("  학습 시작 (진행상황은 아래에 실시간 출력됩니다)")
-    print("=" * 55 + "\n")
+    print("=" * 60)
+    print("  YOLOv8 defect detection training")
+    print("=" * 60)
+    print(f"  dataset : {DATASET_YAML}")
+    print(f"  model   : {BASE_MODEL}")
+    print(f"  epochs  : {EPOCHS}")
+    print(f"  imgsz   : {IMGSZ}")
+    print(f"  batch   : {BATCH} (8GB VRAM default)")
+    print(f"  device  : {DEVICE}")
+    print(f"  labels  : train={train_count:,}, val={val_count:,}")
+    print("=" * 60 + "\n")
 
-    t0 = time.time()
-
-    model = YOLO("yolov8n-cls.pt")  # Pretrained 가중치 자동 다운로드
-
+    started = time.time()
+    model = YOLO(BASE_MODEL)
     results = model.train(
-        data     = str(DATASET_DIR),
-        epochs   = EPOCHS,
-        imgsz    = IMGSZ,
-        batch    = BATCH,
-        workers  = WORKERS,
-        project  = "models/runs",
-        name     = "defect_cls",
-        exist_ok = True,
-        patience = 15,        # Early stopping
-        cache    = False,
-        device   = 0,         # GPU 0 (RTX 4060)
-        verbose  = True,
+        data=str(DATASET_YAML),
+        epochs=EPOCHS,
+        imgsz=IMGSZ,
+        batch=BATCH,
+        workers=WORKERS,
+        project=str(BASE_DIR / "models" / "runs"),
+        name="defect_detect",
+        exist_ok=True,
+        patience=15,
+        cache=False,
+        device=DEVICE,
+        verbose=True,
     )
 
-    # 최적 모델 복사
-    best = Path("models/runs/defect_cls/weights/best.pt")
+    best = BASE_DIR / "models" / "runs" / "defect_detect" / "weights" / "best.pt"
     if best.exists():
-        import shutil
-        shutil.copy(best, MODEL_SAVE)
+        shutil.copy2(best, MODEL_SAVE)
 
-    elapsed = time.time() - t0
-    print("\n" + "=" * 55)
-    print(f"  학습 완료  (소요시간: {elapsed/60:.1f}분)")
-    print(f"  모델 저장: {MODEL_SAVE}")
-
-    # 최종 정확도
-    metrics = results.results_dict
-    top1 = metrics.get("metrics/accuracy_top1", 0)
-    top5 = metrics.get("metrics/accuracy_top5", 0)
-    print(f"  Top-1 정확도: {top1:.1%}")
-    print(f"  Top-5 정확도: {top5:.1%}")
-    print("=" * 55)
+    metrics = getattr(results, "results_dict", {}) or {}
+    print("\n" + "=" * 60)
+    print(f"  training complete in {(time.time() - started) / 60:.1f} min")
+    print(f"  saved model: {MODEL_SAVE}")
+    if metrics:
+        for key in ("metrics/mAP50(B)", "metrics/mAP50-95(B)", "metrics/precision(B)", "metrics/recall(B)"):
+            if key in metrics:
+                print(f"  {key}: {metrics[key]:.4f}")
+    print("=" * 60)
