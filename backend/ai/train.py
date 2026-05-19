@@ -7,7 +7,7 @@ from pathlib import Path
 from ultralytics import YOLO
 
 DATASET_DIR = Path("dataset").resolve()
-MODEL_SAVE  = Path("models/defect_classifier.pt")
+MODEL_SAVE  = Path("models/defect_detector.pt")
 MODEL_SAVE.parent.mkdir(parents=True, exist_ok=True)
 
 EPOCHS  = 50
@@ -50,7 +50,7 @@ if __name__ == "__main__":
         exist_ok = True,
         patience = 15,        # Early stopping
         cache    = False,
-        device   = 0,         # GPU 0 (RTX 4060)
+        device   = 0 if __import__('torch').cuda.is_available() else "cpu",
         verbose  = True,
     )
 

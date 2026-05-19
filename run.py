@@ -11,9 +11,11 @@ import time
 import os
 import sys
 
+PORT = 8002
+
 def open_browser():
     time.sleep(1.5)  # 서버 뜰 때까지 대기
-    webbrowser.open("http://localhost:8000")
+    webbrowser.open(f"http://localhost:{PORT}")
 
 if __name__ == "__main__":
     # 브라우저 자동 실행
@@ -23,6 +25,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "backend.main:app",
         host="127.0.0.1",
-        port=8000,
+        port=PORT,
         reload=False
     )

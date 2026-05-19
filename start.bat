@@ -1,15 +1,15 @@
 @echo off
 REM Quality Claim System - Dev server launcher
-REM Requires: conda env "dl_tf" OR python on PATH
+REM Requires: conda env "bigdata" OR python on PATH
 
 cd /d "%~dp0"
 
-set PYTHON=%USERPROFILE%\anaconda3\envs\dl_tf\python.exe
-if not exist "%PYTHON%" set PYTHON=%USERPROFILE%\miniconda3\envs\dl_tf\python.exe
+set PYTHON=%USERPROFILE%\anaconda3\envs\bigdata\python.exe
+if not exist "%PYTHON%" set PYTHON=%USERPROFILE%\miniconda3\envs\bigdata\python.exe
 if not exist "%PYTHON%" set PYTHON=python
 
 set HOST=0.0.0.0
-set PORT=8000
+set PORT=8002
 
 echo ============================================================
 echo   Quality Claim System

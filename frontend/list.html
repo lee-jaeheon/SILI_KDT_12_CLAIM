@@ -60,6 +60,19 @@
     .s-draft    { background: #f0f0f0; color: #888; }
     .empty-row td { text-align: center; color: #bbb; padding: 40px; font-size: 13px; }
 
+    /* 메모 툴팁 */
+    .memo-tip { position: relative; display: inline-block; cursor: default; margin-left: 4px; vertical-align: middle; }
+    .memo-tip-text { visibility: hidden; width: 220px; background: #2c2c2c; color: #fff;
+      text-align: left; padding: 7px 10px; border-radius: 7px; font-size: 12px;
+      line-height: 1.6; position: absolute; z-index: 50; bottom: 130%; left: 50%;
+      transform: translateX(-50%); white-space: pre-wrap; word-break: break-all;
+      opacity: 0; transition: opacity .18s; pointer-events: none; }
+    .memo-tip::after { content: ''; position: absolute; top: 100%; left: 50%;
+      transform: translateX(-50%); border: 5px solid transparent;
+      border-top-color: #2c2c2c; opacity: 0; transition: opacity .18s; }
+    .memo-tip:hover .memo-tip-text,
+    .memo-tip:hover::after { visibility: visible; opacity: 1; }
+
     /* 삭제 버튼 */
     .delete-cell { width: 40px; padding: 4px 0 !important; text-align: center; }
     .delete-btn { display: none; border: none; background: none; cursor: pointer; color: #e53935; font-size: 15px; padding: 5px 8px; border-radius: 6px; line-height: 1; }
@@ -217,6 +230,8 @@
             <option value="SEALING">실링 불량</option>
             <option value="HEMMING">헤밍 불량</option>
             <option value="HOLE_DEFORM">홀 변형</option>
+            <option value="GAP_DEFECT">간격 불량</option>
+            <option value="FASTENING_DEFECT">체결 불량</option>
           </select>
         </div>
         <table>
@@ -320,6 +335,7 @@
     const DEFECT_LABELS = {
       'OUTER_DAMAGE': '외관 손상', 'SEALING': '실링 불량',
       'HEMMING': '헤밍 불량',     'HOLE_DEFORM': '홀 변형',
+      'GAP_DEFECT': '간격 불량',  'FASTENING_DEFECT': '체결 불량',
     };
     const STATUS_MAP = {
       'draft':     '접수',
@@ -428,7 +444,7 @@
           <td>${d.ai_suggestion
             ? `<span class="ai-tag">✦ ${escHtml(DEFECT_LABELS[d.ai_suggestion] || d.ai_suggestion)}</span>`
             : '<span style="font-size:11px;color:#ccc;">수기입력</span>'}</td>
-          <td>${escHtml(d.handler)}</td>
+          <td>${escHtml(d.handler)}${d.memo ? `<span class="memo-tip">📝<span class="memo-tip-text">${escHtml(d.memo)}</span></span>` : ''}</td>
           <td>${statusBadge(d.status)}</td>
           <td class="delete-cell">
             <button class="delete-btn" onclick="event.stopPropagation(); askDelete(${d.id})" title="삭제">🗑</button>
@@ -509,7 +525,7 @@
               <div class="similar-date">${escHtml((s.received_date || '').slice(0,10))}</div>
             </div>
             <div class="similar-body">
-              원인: ${escHtml(s.root_cause_analysis || '-')}<br/>
+              ${s.claim_text ? `메모: ${escHtml(s.claim_text)}<br/>` : ''}원인: ${escHtml(s.root_cause_analysis || '-')}<br/>
               대책: ${escHtml(s.corrective_action || '-')}
             </div>
           </div>`).join('')

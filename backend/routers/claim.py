@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 import shutil
 from io import BytesIO
@@ -19,7 +20,7 @@ from backend.routers.auth import get_current_user
 from backend.models.database import (
     insert_report, get_report, list_reports, update_report, delete_report,
     insert_image, get_images, delete_image,
-    search_similar, get_defect_types, ReportNotFoundError,
+    search_similar, get_defect_types, get_all_settings, ReportNotFoundError,
 )
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -29,13 +30,22 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 
+
+class _ImageUploadError(Exception):
+    """asyncio.to_thread 경계를 넘어 안전하게 전파되는 이미지 업로드 오류."""
+    def __init__(self, status_code: int, detail: str):
+        self.status_code = status_code
+        self.detail = detail
+
 _TEMPLATE_PATH = Path(__file__).parent.parent / "부적합_처리_보고서_양식.docx"
 
 _DEFECT_CHECKBOX = {
-    "OUTER_DAMAGE": "외관손상",
-    "SEALING":      "실링 불량",
-    "HEMMING":      "헤밍 불량",
-    "HOLE_DEFORM":  "홀 변형",
+    "OUTER_DAMAGE":     "외관손상",
+    "SEALING":          "실링 불량",
+    "HEMMING":          "헤밍 불량",
+    "HOLE_DEFORM":      "홀 변형",
+    "GAP_DEFECT":       "간격 불량",
+    "FASTENING_DEFECT": "체결 불량",
 }
 
 
@@ -138,15 +148,21 @@ def _generate_ncr_docx(report: dict) -> BytesIO:
     _fill_cell(tbl, 4, 4, product)
     _fill_cell(tbl, 4, 8, f"{dfq} EA" if dfq else "")
 
-    # 불량유형 체크박스
+    # 불량유형 체크박스 — part_category에 따라 해당 유형만 표시
     defect_type = report.get("defect_type") or ""
+    part_category = report.get("part_category") or "FRAME"
+    _CONNECTOR_CODES = {"GAP_DEFECT", "FASTENING_DEFECT", "OUTER_DAMAGE"}
+    _FRAME_CODES     = {"OUTER_DAMAGE", "SEALING", "HEMMING", "HOLE_DEFORM"}
+    visible_codes = _CONNECTOR_CODES if part_category == "CONNECTOR" else _FRAME_CODES
+    checkbox_items = {k: v for k, v in _DEFECT_CHECKBOX.items() if k in visible_codes}
+
     cell = tbl.cell(5, 4)
     tc5 = cell._tc
     p5 = tc5.find(qn("w:p"))
     if p5 is None:
         p5 = OxmlElement("w:p"); tc5.append(p5)
     for r in p5.findall(qn("w:r")): p5.remove(r)
-    for code, label in _DEFECT_CHECKBOX.items():
+    for code, label in checkbox_items.items():
         mark = "☑" if code == defect_type else "☐"
         r_el = OxmlElement("w:r")
         rPr = OxmlElement("w:rPr")
@@ -261,12 +277,20 @@ def _fit_image_in_cell(img_path: Path, max_w_cm: float = 14.5, max_h_cm: float =
 def _save_image(image: UploadFile) -> str:
     ext = Path(image.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="지원하지 않는 이미지 형식입니다.")
-    check_size(image, MAX_IMAGE_MB)
+        raise _ImageUploadError(400, "지원하지 않는 이미지 형식입니다.")
+    limit = MAX_IMAGE_MB * 1024 * 1024
+    data  = image.file.read(limit + 1)
+    if len(data) > limit:
+        raise _ImageUploadError(413, f"파일 크기가 너무 큽니다. (최대 {MAX_IMAGE_MB}MB)")
+    try:
+        import io as _io
+        PILImage.open(_io.BytesIO(data)).verify()
+    except Exception:
+        raise _ImageUploadError(400, "유효하지 않은 이미지 파일입니다.")
     filename  = f"{uuid.uuid4().hex}{ext}"
     save_path = UPLOAD_DIR / filename
     with open(save_path, "wb") as f:
-        shutil.copyfileobj(image.file, f)
+        f.write(data)
     return f"/uploads/{filename}"
 
 
@@ -305,6 +329,7 @@ async def create_report(
     product_name:      str            = Form(""),
     product_no:        str            = Form(""),
     part_name:         str            = Form(""),
+    part_category:     str            = Form("FRAME"),
     process_name:      str            = Form(""),
     lot_no:            str            = Form(""),
     delivery_quantity: Optional[int]  = Form(None),
@@ -316,6 +341,7 @@ async def create_report(
     defect_code:         str            = Form(""),
     ai_defect_type:      str            = Form(""),
     ai_confidence:       Optional[float] = Form(None),
+    llm_model:           str            = Form(""),
     claim_text:          str            = Form(""),
     extracted_text:      str            = Form(""),
     root_cause_analysis: str            = Form(""),
@@ -328,26 +354,32 @@ async def create_report(
 ):
     # defect_type 유효성 검증
     if defect_type:
-        valid_codes = {d["code"] for d in get_defect_types()}
+        valid_codes = {d["code"] for d in await asyncio.to_thread(get_defect_types)}
         if defect_type not in valid_codes:
             raise HTTPException(status_code=400, detail=f"유효하지 않은 불량 유형입니다: {defect_type}")
 
     image_path = None
     if image and image.filename:
-        image_path = _save_image(image)
+        try:
+            image_path = await asyncio.to_thread(_save_image, image)
+        except _ImageUploadError as e:
+            raise HTTPException(status_code=e.status_code, detail=e.detail)
 
     report_id = None
     try:
-        report_id = insert_report(
+        report_id = await asyncio.to_thread(
+            insert_report,
             customer_name=customer_name,
             defect_type=defect_type or None,
             defect_code=defect_code or None,
             defect_location=defect_location or None,
             ai_defect_type=ai_defect_type or None,
             ai_confidence=ai_confidence,
+            llm_model=llm_model or None,
             product_name=product_name or None,
             product_no=product_no or None,
             part_name=part_name or None,
+            part_category=part_category or "FRAME",
             process_name=process_name or None,
             lot_no=lot_no or None,
             delivery_quantity=delivery_quantity,
@@ -366,12 +398,12 @@ async def create_report(
         )
 
         if image_path:
-            insert_image(report_id, image_path, image_type="불량부위")
+            await asyncio.to_thread(insert_image, report_id, image_path, "불량부위")
     except Exception:
         _delete_saved_image(image_path)
         if report_id is not None:
             try:
-                delete_report(report_id)
+                await asyncio.to_thread(delete_report, report_id)
             except Exception:
                 pass
         raise
@@ -389,7 +421,6 @@ def get_similar(
     process_name: Optional[str] = Query(None),
     defect_location: Optional[str] = Query(None),
     claim_text: Optional[str] = Query(None),
-    extracted_text: Optional[str] = Query(None),
     claim_summary: Optional[str] = Query(None),
     root_cause_analysis: Optional[str] = Query(None),
     corrective_action: Optional[str] = Query(None),
@@ -407,7 +438,6 @@ def get_similar(
         process_name=process_name,
         defect_location=defect_location,
         claim_text=claim_text,
-        extracted_text=extracted_text,
         claim_summary=claim_summary,
         root_cause_analysis=root_cause_analysis,
         corrective_action=corrective_action,
@@ -417,11 +447,60 @@ def get_similar(
     )
 
 
+def _fill_signature_fallbacks(report: dict) -> dict:
+    """미리보기·다운로드용 서명란 표시 채움 (DB 저장 없음).
+    - author_name: handler 값으로 채움.
+    - reviewer/approver: DB값이 없으면 현재 settings에서 읽어 표시만.
+    """
+    r = dict(report)
+
+    if not r.get("author_name") and r.get("handler"):
+        r["author_name"] = r["handler"]
+
+    if not r.get("reviewer_name") or not r.get("approver_name"):
+        cfg = get_all_settings()
+        if not r.get("reviewer_name"):
+            r["reviewer_name"] = cfg.get("reviewer_name") or ""
+        if not r.get("approver_name"):
+            r["approver_name"] = cfg.get("approver_name") or ""
+
+    return r
+
+
+def _lock_signatures_on_approve(report_id: int) -> None:
+    """approved 처리 시점에 서명란 값을 DB에 저장(락).
+    이후 settings 변경에 무관하게 고정된다.
+    """
+    report = get_report(report_id)
+    if not report:
+        return
+
+    updates: dict = {}
+
+    if not report.get("author_name") and report.get("handler"):
+        updates["author_name"] = report["handler"]
+
+    if not report.get("reviewer_name") or not report.get("approver_name"):
+        cfg = get_all_settings()
+        if not report.get("reviewer_name"):
+            val = cfg.get("reviewer_name") or ""
+            if val:
+                updates["reviewer_name"] = val
+        if not report.get("approver_name"):
+            val = cfg.get("approver_name") or ""
+            if val:
+                updates["approver_name"] = val
+
+    if updates:
+        update_report(report_id, updates)
+
+
 @router.get("/{report_id}/preview")
 def preview_report(report_id: int, _: dict = Depends(get_current_user)):
     report = get_report(report_id)
     if not report:
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
+    report = _fill_signature_fallbacks(report)
     buf = _generate_ncr_docx(report)
     return StreamingResponse(
         buf,
@@ -435,6 +514,7 @@ def download_report(report_id: int, _: dict = Depends(get_current_user)):
     report = get_report(report_id)
     if not report:
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
+    report   = _fill_signature_fallbacks(report)
     buf      = _generate_ncr_docx(report)
     doc_no   = (report.get("document_no") or f"report_{report_id}").replace("/", "-")
     filename = quote(f"NCR_{doc_no}.docx", safe="")
@@ -460,6 +540,7 @@ class UpdateBody(BaseModel):
     product_name:        Optional[str]   = None
     product_no:          Optional[str]   = None
     part_name:           Optional[str]   = None
+    part_category:       Optional[str]   = None
     process_name:        Optional[str]   = None
     lot_no:              Optional[str]   = None
     customer_name:       Optional[str]   = None
@@ -475,6 +556,8 @@ class UpdateBody(BaseModel):
     reviewer_name:       Optional[str]   = None
     approver_name:       Optional[str]   = None
     report_status:       Optional[str]   = None
+    claim_text:          Optional[str]   = None
+    extracted_text:      Optional[str]   = None
 
 
 @router.put("/{report_id}")
@@ -503,6 +586,8 @@ def change_status(report_id: int, status: str = Body(..., embed=True), _: dict =
     result = update_report(report_id, {"report_status": status})
     if result == "missing":
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
+    if status == "approved":
+        _lock_signatures_on_approve(report_id)
     return {"report_id": report_id, "report_status": status, "message": f"상태가 '{status}'로 변경되었습니다."}
 
 
@@ -523,9 +608,12 @@ async def add_image(
     image_description: str = Form(""),
     _: dict = Depends(get_current_user),
 ):
-    image_path = _save_image(image)
     try:
-        iid = insert_image(report_id, image_path, image_type or None, image_description or None)
+        image_path = await asyncio.to_thread(_save_image, image)
+    except _ImageUploadError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail)
+    try:
+        iid = await asyncio.to_thread(insert_image, report_id, image_path, image_type or None, image_description or None)
     except ReportNotFoundError:
         _delete_saved_image(image_path)
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")

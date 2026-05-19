@@ -1,4 +1,8 @@
+import asyncio
 import logging
+import os
+import time
+from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import httpx
@@ -7,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routers import claim, ai, auth
+from backend.routers.ai import preload_model
 from backend.models.database import init_db, get_conn
 from backend.ai.ollama import OLLAMA_URL, OLLAMA_MODEL
 
@@ -21,11 +26,21 @@ _console_handler = logging.StreamHandler()
 _console_handler.setFormatter(_log_fmt)
 logging.basicConfig(level=logging.INFO, handlers=[_file_handler, _console_handler])
 
-app = FastAPI(title="납품 불량 클레임 대응 자동화 시스템", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await asyncio.to_thread(init_db)
+    await asyncio.to_thread(preload_model)
+    yield
+
+
+app = FastAPI(title="납품 불량 클레임 대응 자동화 시스템", version="1.0.0", lifespan=lifespan)
+
+_CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8002,http://127.0.0.1:8002").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -42,24 +57,33 @@ app.mount("/js",      StaticFiles(directory=str(_BASE / "frontend" / "js")),    
 app.mount("/fonts",   StaticFiles(directory=str(_BASE / "frontend" / "fonts")), name="fonts")
 
 
-@app.on_event("startup")
-async def startup():
-    init_db()
+MODEL_PATH = _BASE / "models" / "defect_detector.pt"
 
-
-MODEL_PATH = _BASE / "models" / "defect_classifier.pt"
+_HEALTH_TTL = 10  # seconds
+_health_cache: dict = {}
+_health_cache_ts: float = 0.0
 
 
 @app.get("/health")
 async def health():
     # 내부 오류 메시지·전체 경로 노출 방지. ok 여부만 외부 공개.
+    global _health_cache, _health_cache_ts
+    now = time.monotonic()
+    if now - _health_cache_ts < _HEALTH_TTL and _health_cache:
+        return JSONResponse(
+            status_code=200 if _health_cache.get("status") == "ok" else 503,
+            content=_health_cache,
+        )
+
     checks = {}
 
     try:
-        with get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1")
-                cur.fetchone()
+        def _db_ping():
+            with get_conn() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1")
+                    cur.fetchone()
+        await asyncio.to_thread(_db_ping)
         checks["db"] = {"ok": True}
     except Exception as e:
         logging.warning("health: DB check failed: %s", e)
@@ -79,9 +103,12 @@ async def health():
     checks["model"] = {"ok": MODEL_PATH.exists()}
 
     overall = all(c.get("ok") for c in checks.values())
+    result = {"status": "ok" if overall else "degraded", "checks": checks}
+    _health_cache = result
+    _health_cache_ts = now
     return JSONResponse(
         status_code=200 if overall else 503,
-        content={"status": "ok" if overall else "degraded", "checks": checks},
+        content=result,
     )
 
 

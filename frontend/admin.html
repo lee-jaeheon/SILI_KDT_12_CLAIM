@@ -45,6 +45,18 @@
       font-size: 13px; color: #0d6b6c; cursor: pointer; background: none; border: none;
       font-family: inherit; padding: 0; }
     .back-btn:hover { text-decoration: underline; }
+
+    .settings-card { background: #fff; border-radius: 14px; border: 1px solid #e0e0e0; padding: 22px 24px; margin-bottom: 28px; }
+    .settings-title { font-size: 15px; font-weight: 600; color: #2c2c2c; margin-bottom: 4px; }
+    .settings-sub   { font-size: 12px; color: #999; margin-bottom: 18px; }
+    .settings-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .settings-field { display: flex; flex-direction: column; gap: 6px; }
+    .settings-field label { font-size: 12px; color: #666; font-weight: 500; }
+    .settings-field input { padding: 9px 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; color: #2c2c2c; font-family: inherit; outline: none; transition: border-color .15s; }
+    .settings-field input:focus { border-color: #0d6b6c; }
+    .btn-settings-save { padding: 9px 22px; background: #0d6b6c; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background .15s; }
+    .btn-settings-save:hover { background: #0a5a5b; }
+    .btn-settings-save:disabled { background: #9ec5c5; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -68,8 +80,27 @@
 
   <div class="page-wrap">
     <button class="back-btn" onclick="location.href='/hub'">← 허브로 돌아가기</button>
-    <div class="page-title">계정 관리</div>
-    <div class="page-sub">사용자 계정의 역할 변경, 활성화/비활성화, 삭제를 관리합니다.</div>
+    <div class="page-title">관리자 설정</div>
+    <div class="page-sub">서명란 설정 및 계정 관리를 수행합니다.</div>
+
+    <div class="settings-card">
+      <div class="settings-title">보고서 서명란 설정</div>
+      <div class="settings-sub">저장된 검토자·승인자 이름은 새로 생성되는 보고서에 자동으로 적용됩니다. 기존 보고서는 변경되지 않습니다.</div>
+      <div class="settings-grid">
+        <div class="settings-field">
+          <label>검토자 이름</label>
+          <input type="text" id="reviewerName" placeholder="예: 홍길동" />
+        </div>
+        <div class="settings-field">
+          <label>승인자 이름</label>
+          <input type="text" id="approverName" placeholder="예: 김철수" />
+        </div>
+      </div>
+      <button class="btn-settings-save" id="saveSettingsBtn" onclick="saveSettings()">저장</button>
+    </div>
+
+    <div class="page-title" style="margin-bottom:6px">계정 관리</div>
+    <div class="page-sub" style="margin-bottom:20px">사용자 계정의 역할 변경, 활성화/비활성화, 삭제를 관리합니다.</div>
 
     <div class="user-table-wrap">
       <table>
@@ -111,6 +142,28 @@
     let _currentUserId = user?.user_id;
 
     function escHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    async function loadSettings() {
+      const data = await apiFetch('/api/auth/settings');
+      if (!data) return;
+      document.getElementById('reviewerName').value = data.reviewer_name || '';
+      document.getElementById('approverName').value = data.approver_name || '';
+    }
+
+    async function saveSettings() {
+      const btn = document.getElementById('saveSettingsBtn');
+      btn.disabled = true; btn.textContent = '저장 중...';
+      const res = await apiFetch('/api/auth/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reviewer_name: document.getElementById('reviewerName').value.trim(),
+          approver_name: document.getElementById('approverName').value.trim(),
+        }),
+      });
+      btn.disabled = false; btn.textContent = '저장';
+      if (res !== null) showToast('서명란 설정이 저장됐습니다.');
+    }
 
     async function loadUsers() {
       const data = await apiFetch('/api/auth/users');
@@ -179,6 +232,7 @@
       setTimeout(() => t.classList.remove('show'), 2500);
     }
 
+    loadSettings();
     loadUsers();
   </script>
 </body>

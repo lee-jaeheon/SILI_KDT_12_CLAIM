@@ -10,7 +10,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
-from backend.models.database import get_conn
+from backend.models.database import get_conn, get_all_settings, upsert_setting
 
 load_dotenv()
 
@@ -103,6 +103,10 @@ class RegisterBody(BaseModel):
     password: str
     name: str
 
+class SettingsBody(BaseModel):
+    reviewer_name: str = ""
+    approver_name: str = ""
+
 
 # ── 로그인 ─────────────────────────────────────────────────────────────────────
 
@@ -111,7 +115,8 @@ def login(body: LoginBody):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT * FROM users WHERE username = %s AND is_active = 1",
+                "SELECT user_id, username, name, role, password "
+                "FROM users WHERE username = %s AND is_active = 1",
                 (body.username,),
             )
             user = cur.fetchone()
@@ -142,8 +147,8 @@ def login(body: LoginBody):
 def register(body: RegisterBody):
     if len(body.username.strip()) < 3:
         raise HTTPException(status_code=400, detail="아이디는 3자 이상이어야 합니다.")
-    if len(body.password) < 4:
-        raise HTTPException(status_code=400, detail="비밀번호는 4자 이상이어야 합니다.")
+    if len(body.password) < 8:
+        raise HTTPException(status_code=400, detail="비밀번호는 8자 이상이어야 합니다.")
     if not body.name.strip():
         raise HTTPException(status_code=400, detail="이름을 입력해주세요.")
 
@@ -160,6 +165,24 @@ def register(body: RegisterBody):
                 (body.username.strip(), hash_pw(body.password), body.name.strip()),
             )
     return {"message": "회원가입이 완료됐습니다."}
+
+
+# ── 관리자: 서명란 설정 ────────────────────────────────────────────────────────
+
+@router.get("/settings")
+def get_settings(_: dict = Depends(require_admin)):
+    data = get_all_settings()
+    return {
+        "reviewer_name": data.get("reviewer_name", ""),
+        "approver_name": data.get("approver_name", ""),
+    }
+
+
+@router.put("/settings")
+def update_settings(body: SettingsBody, _: dict = Depends(require_admin)):
+    upsert_setting("reviewer_name", body.reviewer_name.strip())
+    upsert_setting("approver_name", body.approver_name.strip())
+    return {"message": "설정이 저장됐습니다."}
 
 
 # ── 관리자: 계정 목록 ──────────────────────────────────────────────────────────

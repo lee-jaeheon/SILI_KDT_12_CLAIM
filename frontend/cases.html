@@ -37,11 +37,13 @@
     .case-card-date { font-size: 12px; color: #bbb; }
     .case-card-company { font-size: 15px; font-weight: 500; color: #2c2c2c; margin-bottom: 8px; }
     .case-card-type { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; margin-bottom: 12px; }
-    .type-OUTER_DAMAGE { background: #ffe8e8; color: #c0392b; }
-    .type-SEALING      { background: #e8f0ff; color: #1a4fa0; }
-    .type-HEMMING      { background: #fff3e0; color: #a06010; }
-    .type-HOLE_DEFORM  { background: #e8f5e9; color: #1e6e3e; }
-    .type-default      { background: #f0f0f0; color: #555; }
+    .type-OUTER_DAMAGE     { background: #ffe8e8; color: #c0392b; }
+    .type-SEALING          { background: #e8f0ff; color: #1a4fa0; }
+    .type-HEMMING          { background: #fff3e0; color: #a06010; }
+    .type-HOLE_DEFORM      { background: #e8f5e9; color: #1e6e3e; }
+    .type-GAP_DEFECT       { background: #f3e8ff; color: #7b2d8b; }
+    .type-FASTENING_DEFECT { background: #e8f8ff; color: #006f9e; }
+    .type-default          { background: #f0f0f0; color: #555; }
     .case-card-preview { font-size: 13px; color: #666; line-height: 1.6; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
     .case-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
     .case-card-product { font-size: 12px; color: #aaa; }
@@ -132,6 +134,8 @@
             <option value="SEALING">실링 불량</option>
             <option value="HEMMING">헤밍 불량</option>
             <option value="HOLE_DEFORM">홀 변형</option>
+            <option value="GAP_DEFECT">간격 불량</option>
+            <option value="FASTENING_DEFECT">체결 불량</option>
           </select>
         </div>
       </div>
@@ -151,6 +155,8 @@
           <button class="defect-filter-tab" onclick="setDefectTab('SEALING', this)">실링 불량</button>
           <button class="defect-filter-tab" onclick="setDefectTab('HEMMING', this)">헤밍 불량</button>
           <button class="defect-filter-tab" onclick="setDefectTab('HOLE_DEFORM', this)">홀 변형</button>
+          <button class="defect-filter-tab" onclick="setDefectTab('GAP_DEFECT', this)">간격 불량</button>
+          <button class="defect-filter-tab" onclick="setDefectTab('FASTENING_DEFECT', this)">체결 불량</button>
         </div>
       </div>
       <div class="cases-grid" id="casesGrid">
@@ -232,10 +238,12 @@
     const DEFECT_LABELS = {
       'OUTER_DAMAGE': '외관 손상', 'SEALING': '실링 불량',
       'HEMMING': '헤밍 불량',     'HOLE_DEFORM': '홀 변형',
+      'GAP_DEFECT': '간격 불량',  'FASTENING_DEFECT': '체결 불량',
     };
     const DEFECT_TYPE_CLASS = {
       'OUTER_DAMAGE': 'type-OUTER_DAMAGE', 'SEALING': 'type-SEALING',
       'HEMMING': 'type-HEMMING',           'HOLE_DEFORM': 'type-HOLE_DEFORM',
+      'GAP_DEFECT': 'type-GAP_DEFECT',     'FASTENING_DEFECT': 'type-FASTENING_DEFECT',
     };
 
     const user = JSON.parse(sessionStorage.getItem('user'));
@@ -268,6 +276,7 @@
           delivery_quantity: item.delivery_quantity || '',
           defect_quantity:   item.defect_quantity   || '',
         }));
+        allCases.sort((a, b) => new Date(b.date) - new Date(a.date));
       }
       document.getElementById('statTotal').textContent = allCases.length;
       filterCases();
@@ -500,8 +509,8 @@
       document.getElementById('modalTitle').textContent = `부적합 보고서 (NCR)`;
       document.getElementById('modalSub').textContent = `${c.num} · ${c.date} · 담당자: ${c.handler}`;
 
-      const defects = ['OUTER_DAMAGE','SEALING','HEMMING','HOLE_DEFORM'];
-      const defectKo = {'OUTER_DAMAGE':'외관손상','SEALING':'실링 불량','HEMMING':'헤밍 불량','HOLE_DEFORM':'홀 변형'};
+      const defects = ['OUTER_DAMAGE','SEALING','HEMMING','HOLE_DEFORM','GAP_DEFECT','FASTENING_DEFECT'];
+      const defectKo = {'OUTER_DAMAGE':'외관손상','SEALING':'실링 불량','HEMMING':'헤밍 불량','HOLE_DEFORM':'홀 변형','GAP_DEFECT':'간격 불량','FASTENING_DEFECT':'체결 불량'};
       const checkboxes = defects.map(d =>
         `<span class="ncr-checkbox">${d === c.defect_type ? '☑' : '□'} ${defectKo[d]}</span>`
       ).join('');

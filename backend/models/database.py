@@ -1,6 +1,9 @@
 ﻿import json
+import logging
 import os
 import ast
+import re
+import threading
 from contextlib import contextmanager
 from datetime import datetime
 from difflib import SequenceMatcher
@@ -11,6 +14,8 @@ import pymysql.cursors
 from dotenv import load_dotenv
 
 load_dotenv()
+
+_logger = logging.getLogger(__name__)
 
 DB_HOST     = os.getenv("DB_HOST", "localhost")
 DB_PORT     = int(os.getenv("DB_PORT", "3306"))
@@ -65,6 +70,13 @@ def _ensure_schema_extensions(cur):
     if _column_type(cur, "defect_reports", "extracted_text") != "longtext":
         cur.execute("ALTER TABLE defect_reports MODIFY extracted_text LONGTEXT")
 
+    # part_category 컬럼 추가 (FRAME / CONNECTOR 구분)
+    if _column_type(cur, "defect_reports", "part_category") is None:
+        cur.execute(
+            "ALTER TABLE defect_reports "
+            "ADD COLUMN part_category VARCHAR(20) DEFAULT 'FRAME' AFTER part_name"
+        )
+
     _ensure_index(
         cur,
         "defect_reports",
@@ -116,14 +128,21 @@ def _seed_defect_types(cur):
 
 
 def _extract_insert_rows(sql_text: str, table_name: str) -> list[tuple]:
-    marker = f"INSERT INTO {table_name}"
-    start = sql_text.find(marker)
+    # 백틱 표기 우선, 없으면 일반 표기
+    for marker in (f"INSERT INTO `{table_name}`", f"INSERT INTO {table_name}"):
+        start = sql_text.find(marker)
+        if start >= 0:
+            break
     if start < 0:
         return []
-    values_start = sql_text.find(") VALUES", start)
+    m = re.search(r'\bVALUES\b', sql_text[start:], re.IGNORECASE)
+    if not m:
+        return []
+    after_values = start + m.end()
+    values_start = sql_text.find("\n", after_values)
     if values_start < 0:
         return []
-    values_start = sql_text.find("\n", values_start) + 1
+    values_start += 1
     end = sql_text.find(";\n", values_start)
     if end < 0:
         end = sql_text.find(";", values_start)
@@ -132,8 +151,12 @@ def _extract_insert_rows(sql_text: str, table_name: str) -> list[tuple]:
     values_text = sql_text[values_start:end].strip()
     if not values_text:
         return []
-    values_text = values_text.replace("NULL", "None")
-    return list(ast.literal_eval(f"[{values_text}]"))
+    # 단어 경계로 NULL만 치환 — 문자열 리터럴 내 'NULL' 포함 단어는 건드리지 않음
+    values_text = re.sub(r'\bNULL\b', 'None', values_text)
+    try:
+        return list(ast.literal_eval(f"[{values_text}]"))
+    except (SyntaxError, ValueError):
+        return []
 
 
 def _seed_admin_user(cur):
@@ -142,8 +165,7 @@ def _seed_admin_user(cur):
         from passlib.context import CryptContext
         hashed = CryptContext(schemes=["bcrypt"], deprecated="auto").hash("1234")
     except ImportError:
-        import logging
-        logging.getLogger(__name__).warning("passlib 미설치 — 계정 시드 건너뜀")
+        _logger.warning("passlib 미설치 — 계정 시드 건너뜀")
         return
 
     seed_users = [
@@ -216,27 +238,201 @@ def _seed_sample_cases(cur):
                 image_rows,
             )
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("샘플 데이터 로드 실패 (무시됨): %s", e)
+        _logger.warning("샘플 데이터 로드 실패 (무시됨): %s", e)
 
 
-@contextmanager
-def get_conn():
-    conn = pymysql.connect(
+def _seed_connector_cases(conn):
+    """커넥터 불량 샘플 케이스 시드 — 커넥터 레코드가 없을 때만 삽입."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(1) AS cnt FROM defect_reports WHERE part_category = 'CONNECTOR'"
+        )
+        if cur.fetchone()["cnt"] > 0:
+            return
+
+    _CONNECTOR_SAMPLES = [
+        {
+            "customer_name": "현대모비스",
+            "defect_type": "GAP_DEFECT",
+            "part_category": "CONNECTOR",
+            "defect_location": "커넥터 하우징 결합부",
+            "product_name": "ABS 커넥터",
+            "product_no": "CNT-ABS-001",
+            "part_name": "커넥터",
+            "delivery_quantity": 1000,
+            "defect_quantity": 12,
+            "handler": "김철수",
+            "root_cause_analysis": "커넥터 하우징의 금형 마모로 인해 조립 시 간격이 규격(0.05mm)을 초과함. 생산 후 검사 공정에서 간격 게이지 미측정으로 유출.",
+            "corrective_action": "금형 교체 및 간격 측정 게이지 추가 배치. 전수 검사 실시하여 불량품 격리 조치.",
+            "preventive_action": "금형 수명 관리 대장 작성 및 500사이클마다 정기 점검 실시. 라인 출하 검사 기준서에 간격 측정 항목 추가.",
+            "report_status": "approved",
+        },
+        {
+            "customer_name": "기아",
+            "defect_type": "FASTENING_DEFECT",
+            "part_category": "CONNECTOR",
+            "defect_location": "커넥터 잠금 클립",
+            "product_name": "도어 와이어 커넥터",
+            "product_no": "CNT-DW-007",
+            "part_name": "커넥터",
+            "delivery_quantity": 500,
+            "defect_quantity": 5,
+            "handler": "이영희",
+            "root_cause_analysis": "조립 자동화 라인의 체결 토크 설정값이 최적값 대비 낮게 설정되어 잠금 클립이 완전 체결되지 않음. 진동 환경에서 클립이 분리될 위험 발생.",
+            "corrective_action": "체결 토크를 표준값(2.5N·m)으로 재설정. 토크 모니터링 센서 알람 기준 강화. 해당 배치 전수 재검사.",
+            "preventive_action": "자동화 라인 설비 파라미터 이력 관리 시스템 도입. 주간 1회 체결 토크 확인 절차 추가.",
+            "report_status": "approved",
+        },
+        {
+            "customer_name": "HLB모터스",
+            "defect_type": "GAP_DEFECT",
+            "part_category": "CONNECTOR",
+            "defect_location": "핀 삽입부 간격",
+            "product_name": "엔진 ECU 커넥터",
+            "product_no": "CNT-ECU-003",
+            "part_name": "커넥터",
+            "delivery_quantity": 300,
+            "defect_quantity": 3,
+            "handler": "박민준",
+            "root_cause_analysis": "핀 삽입 공정에서 작업자 수작업 오류 발생. 핀이 완전히 삽입되지 않아 규격(최소 삽입 깊이 8mm) 미달로 간격 불량 발생.",
+            "corrective_action": "수작업 공정을 반자동 지그로 대체. 핀 삽입 후 통전 검사를 100% 실시.",
+            "preventive_action": "작업자 교육 재실시. 핀 삽입 지그 도입 및 삽입 깊이 자동 감지 센서 설치.",
+            "report_status": "submitted",
+        },
+        {
+            "customer_name": "현대자동차",
+            "defect_type": "FASTENING_DEFECT",
+            "part_category": "CONNECTOR",
+            "defect_location": "2차 잠금 장치",
+            "product_name": "트랜스미션 커넥터",
+            "product_no": "CNT-TM-012",
+            "part_name": "커넥터",
+            "delivery_quantity": 800,
+            "defect_quantity": 8,
+            "handler": "최정훈",
+            "root_cause_analysis": "2차 잠금 장치의 플라스틱 래치 재료 물성 변화(충격 강도 저하)로 조립 시 파손. 원자재 입고 검사에서 물성 확인 누락.",
+            "corrective_action": "해당 배치 원자재 전량 반품 조치. 물성이 확인된 대체 원자재로 교체 후 생산 재개.",
+            "preventive_action": "원자재 입고 시 충격 강도 샘플 시험 의무화. 공급사 품질 협약서에 물성 성적서 첨부 조항 추가.",
+            "report_status": "approved",
+        },
+        {
+            "customer_name": "성우하이텍",
+            "defect_type": "OUTER_DAMAGE",
+            "part_category": "CONNECTOR",
+            "defect_location": "커넥터 외관",
+            "product_name": "배터리 커넥터",
+            "product_no": "CNT-BAT-005",
+            "part_name": "커넥터",
+            "delivery_quantity": 200,
+            "defect_quantity": 4,
+            "handler": "강지은",
+            "root_cause_analysis": "포장 불량으로 인해 운반 중 커넥터 외관이 손상됨. 완충재 규격이 커넥터 크기에 맞지 않아 유격 발생.",
+            "corrective_action": "포장 방식 개선 — 개별 비닐 포장 후 에어캡 완충재 적용. 손상품 전량 폐기.",
+            "preventive_action": "포장 설계서 업데이트 및 포장 검증 절차 추가. 수입 검사 시 포장 상태 확인 항목 신설.",
+            "report_status": "submitted",
+        },
+    ]
+
+    try:
+        for s in _CONNECTOR_SAMPLES:
+            doc_no = _generate_document_no(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO defect_reports (
+                        document_no, defect_type, part_category, defect_location,
+                        customer_name, product_name, product_no, part_name,
+                        delivery_quantity, defect_quantity, handler,
+                        root_cause_analysis, corrective_action, preventive_action,
+                        report_status, received_date
+                    ) VALUES (
+                        %s, %s, %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s,
+                        %s, %s, %s,
+                        %s, CURDATE()
+                    )
+                    """,
+                    (
+                        doc_no,
+                        s["defect_type"], s["part_category"], s["defect_location"],
+                        s["customer_name"], s["product_name"], s["product_no"], s["part_name"],
+                        s["delivery_quantity"], s["defect_quantity"], s["handler"],
+                        s["root_cause_analysis"], s["corrective_action"], s["preventive_action"],
+                        s["report_status"],
+                    ),
+                )
+            conn.commit()
+        _logger.info("커넥터 샘플 케이스 %d건 시드 완료", len(_CONNECTOR_SAMPLES))
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        _logger.warning("커넥터 샘플 시드 실패 (무시됨): %s", e)
+
+
+_pool_lock = threading.Lock()
+_pool: list = []
+_POOL_MAX   = 10
+
+
+def _create_raw_conn():
+    return pymysql.connect(
         host=DB_HOST, port=DB_PORT,
         user=DB_USER, password=DB_PASSWORD,
         database=DB_NAME,
         cursorclass=pymysql.cursors.DictCursor,
         charset="utf8mb4",
+        autocommit=False,
     )
+
+
+def _acquire():
+    with _pool_lock:
+        while _pool:
+            conn = _pool.pop()
+            try:
+                conn.ping(reconnect=True)
+                return conn
+            except Exception:
+                pass
+    return _create_raw_conn()
+
+
+def _release(conn):
+    with _pool_lock:
+        if len(_pool) < _POOL_MAX:
+            _pool.append(conn)
+            return
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+
+@contextmanager
+def get_conn():
+    conn = _acquire()
+    ok = False
     try:
         yield conn
         conn.commit()
+        ok = True
     except Exception:
-        conn.rollback()
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         raise
     finally:
-        conn.close()
+        if ok:
+            _release(conn)
+        else:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 def init_db():
@@ -331,6 +527,12 @@ def init_db():
                     created_at DATETIME     DEFAULT NOW()
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    key_name VARCHAR(100) PRIMARY KEY,
+                    value    VARCHAR(255) NOT NULL DEFAULT ''
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
             _seed_defect_types(cur)
             _seed_sample_cases(cur)
             _seed_document_sequences(cur)
@@ -341,6 +543,10 @@ def init_db():
         with conn.cursor() as cur:
             _ensure_schema_extensions(cur)
 
+    # 커넥터 샘플 케이스 — 별도 커넥션에서 실행 (트랜잭션 독립)
+    with get_conn() as conn:
+        _seed_connector_cases(conn)
+
 
 # ── defect_types 조회 ────────────────────────────────
 
@@ -349,6 +555,33 @@ def get_defect_types() -> list[dict]:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM defect_types")
             return cur.fetchall()
+
+
+# ── settings CRUD ────────────────────────────────
+
+def get_setting(key: str) -> str | None:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT value FROM settings WHERE key_name = %s", (key,))
+            row = cur.fetchone()
+            return row["value"] if row else None
+
+
+def get_all_settings() -> dict:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT key_name, value FROM settings")
+            return {row["key_name"]: row["value"] for row in cur.fetchall()}
+
+
+def upsert_setting(key: str, value: str) -> None:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO settings (key_name, value) VALUES (%s, %s) "
+                "ON DUPLICATE KEY UPDATE value = %s",
+                (key, value, value),
+            )
 
 
 # ── defect_reports CRUD ──────────────────────────
@@ -388,6 +621,7 @@ def insert_report(
     product_name: str = None,
     product_no: str = None,
     part_name: str = None,
+    part_category: str = "FRAME",
     process_name: str = None,
     lot_no: str = None,
     delivery_quantity: int = None,
@@ -406,6 +640,22 @@ def insert_report(
     approver_name: str = None,
 ) -> int:
     with get_conn() as conn:
+        # author_name이 없으면 handler 값으로 자동 설정
+        if not author_name and handler:
+            author_name = handler
+        # settings 테이블에서 검토자/승인자 자동 적용 (명시적으로 전달된 경우엔 유지)
+        if not reviewer_name or not approver_name:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT key_name, value FROM settings "
+                    "WHERE key_name IN ('reviewer_name', 'approver_name')"
+                )
+                for row in cur.fetchall():
+                    if row["key_name"] == "reviewer_name" and not reviewer_name:
+                        reviewer_name = row["value"] or None
+                    elif row["key_name"] == "approver_name" and not approver_name:
+                        approver_name = row["value"] or None
+
         doc_no   = _generate_document_no(conn)
         received = datetime.now().strftime("%Y-%m-%d")
         with conn.cursor() as cur:
@@ -414,17 +664,17 @@ def insert_report(
                     document_no, received_date, customer_name,
                     defect_type, defect_code, defect_location,
                     ai_defect_type, ai_confidence, llm_model,
-                    product_name, product_no, part_name, process_name, lot_no,
+                    product_name, product_no, part_name, part_category, process_name, lot_no,
                     delivery_quantity, defect_quantity,
                     claim_text, extracted_text, claim_summary,
                     handler, author_name, delivery_date, issue_date,
                     root_cause_analysis, corrective_action, preventive_action,
                     reviewer_name, approver_name
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (doc_no, received, customer_name,
                  defect_type, defect_code, defect_location,
                  ai_defect_type, ai_confidence, llm_model,
-                 product_name, product_no, part_name, process_name, lot_no,
+                 product_name, product_no, part_name, part_category or "FRAME", process_name, lot_no,
                  delivery_quantity, defect_quantity,
                  claim_text, extracted_text, claim_summary,
                  handler, author_name, delivery_date, issue_date,
@@ -490,7 +740,7 @@ def list_reports(status: str = None, limit: int = 20, offset: int = 0) -> dict:
 
 ALLOWED_UPDATE_FIELDS = {
     "defect_type", "defect_code", "defect_location",
-    "product_name", "product_no", "part_name", "process_name", "lot_no",
+    "product_name", "product_no", "part_name", "part_category", "process_name", "lot_no",
     "customer_name", "delivery_quantity", "defect_quantity",
     "delivery_date", "issue_date",
     "claim_text", "extracted_text", "claim_summary",
@@ -630,10 +880,10 @@ def _max_similarity(left_values: list, right_values: list) -> float:
 
 def _similarity_level(score: int) -> str:
     if score >= 80:
-        return "\uc720\uc0ac \uc0ac\ub840"
+        return "유사 사례"
     if score >= 60:
-        return "\ucc38\uace0 \uc0ac\ub840"
-    return "\uc720\uc0ac \uc0ac\ub840 \uc5c6\uc74c"
+        return "참고 사례"
+    return "유사 사례 없음"
 
 
 def _score_similar_case(target: dict, case: dict) -> tuple[int, dict]:
@@ -641,7 +891,7 @@ def _score_similar_case(target: dict, case: dict) -> tuple[int, dict]:
     active = {
         "defect_type": bool(target.get("defect_type")),
         "product": any(target.get(key) for key in ("product_name", "product_no", "part_name")),
-        "defect_detail": any(target.get(key) for key in ("defect_location", "claim_text", "extracted_text", "claim_summary")),
+        "defect_detail": any(target.get(key) for key in ("defect_location", "claim_text", "claim_summary")),
         "root_cause": bool(target.get("root_cause_analysis")),
         "actions": any(target.get(key) for key in ("corrective_action", "preventive_action")),
         "customer": bool(target.get("customer_name")),
@@ -656,8 +906,8 @@ def _score_similar_case(target: dict, case: dict) -> tuple[int, dict]:
         (target.get("part_name"), case.get("part_name")),
     ])
     details["defect_detail"] = _max_similarity(
-        [target.get("defect_location"), target.get("claim_text"), target.get("extracted_text"), target.get("claim_summary")],
-        [case.get("defect_location"), case.get("claim_text"), case.get("extracted_text"), case.get("claim_summary")],
+        [target.get("defect_location"), target.get("claim_text"), target.get("claim_summary")],
+        [case.get("defect_location"), case.get("claim_text"), case.get("claim_summary")],
     )
     details["root_cause"] = _text_similarity(target.get("root_cause_analysis"), case.get("root_cause_analysis"))
     details["actions"] = _avg_similarities([
@@ -694,7 +944,6 @@ def search_similar(
     process_name: str = None,
     defect_location: str = None,
     claim_text: str = None,
-    extracted_text: str = None,
     claim_summary: str = None,
     root_cause_analysis: str = None,
     corrective_action: str = None,
@@ -711,7 +960,6 @@ def search_similar(
         "process_name": process_name,
         "defect_location": defect_location,
         "claim_text": claim_text,
-        "extracted_text": extracted_text,
         "claim_summary": claim_summary,
         "root_cause_analysis": root_cause_analysis,
         "corrective_action": corrective_action,
@@ -719,9 +967,34 @@ def search_similar(
     }
     fetch_limit = max(limit * 10, 50)
 
+    # 1단계: 후보 케이스 조회 후 커넥션 즉시 반환
     with get_conn() as conn:
         with conn.cursor() as cur:
-            if defect_type:
+            if defect_type and customer_name:
+                cur.execute(
+                    """
+                    SELECT * FROM defect_reports
+                    WHERE report_status = 'approved'
+                      AND defect_type = %s
+                      AND customer_name = %s
+                    ORDER BY report_id DESC
+                    LIMIT %s
+                    """,
+                    (defect_type, customer_name, fetch_limit),
+                )
+                cases = cur.fetchall()
+                if not cases:
+                    cur.execute(
+                        """
+                        SELECT * FROM defect_reports
+                        WHERE report_status = 'approved' AND defect_type = %s
+                        ORDER BY report_id DESC
+                        LIMIT %s
+                        """,
+                        (defect_type, fetch_limit),
+                    )
+                    cases = cur.fetchall()
+            elif defect_type:
                 cur.execute(
                     """
                     SELECT * FROM defect_reports
@@ -731,6 +1004,7 @@ def search_similar(
                     """,
                     (defect_type, fetch_limit),
                 )
+                cases = cur.fetchall()
             else:
                 cur.execute(
                     """
@@ -741,24 +1015,27 @@ def search_similar(
                     """,
                     (fetch_limit,),
                 )
-            cases = cur.fetchall()
+                cases = cur.fetchall()
 
-        results = []
-        for case in cases:
-            score, score_details = _score_similar_case(target, case)
-            if score < min_score:
-                continue
-            case["similarity_score"] = score
-            case["similarity_level"] = _similarity_level(score)
-            case["score_details"] = score_details
-            results.append(case)
+    # 2단계: Python 측 스코어링 (커넥션 미점유)
+    results = []
+    for case in cases:
+        score, score_details = _score_similar_case(target, case)
+        if score < min_score:
+            continue
+        case["similarity_score"] = score
+        case["similarity_level"] = _similarity_level(score)
+        case["score_details"] = score_details
+        results.append(case)
 
-        results.sort(key=lambda item: (item["similarity_score"], item["report_id"]), reverse=True)
-        selected = results[:limit]
+    results.sort(key=lambda item: (item["similarity_score"], item["report_id"]), reverse=True)
+    selected = results[:limit]
 
-        if selected:
-            report_ids = [item["report_id"] for item in selected]
-            placeholders = ", ".join(["%s"] * len(report_ids))
+    # 3단계: 선택된 케이스의 이미지 조회 (별도 커넥션)
+    if selected:
+        report_ids = [item["report_id"] for item in selected]
+        placeholders = ", ".join(["%s"] * len(report_ids))
+        with get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"""
@@ -772,7 +1049,7 @@ def search_similar(
                 images_by_report = {}
                 for image in cur.fetchall():
                     images_by_report.setdefault(image["report_id"], []).append(image)
-            for item in selected:
-                item["images"] = images_by_report.get(item["report_id"], [])
+        for item in selected:
+            item["images"] = images_by_report.get(item["report_id"], [])
 
     return selected
